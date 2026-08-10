@@ -1,0 +1,11 @@
+/* Empty states */
+
+.empty-state {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.empty-state p {
+  margin-bottom: 0;
+}

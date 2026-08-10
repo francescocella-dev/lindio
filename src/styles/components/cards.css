@@ -1,0 +1,45 @@
+/* Cards and generic statistic cards */
+
+.card,
+.analysis-card,
+.analysis-empty {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.card,
+.analysis-card,
+.analysis-empty {
+  padding: 17px;
+}
+
+.stat-card {
+  display: grid;
+  gap: 5px;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::after {
+  position: absolute;
+  right: -20px;
+  top: -24px;
+  width: 72px;
+  height: 72px;
+  content: "";
+  border-radius: 50%;
+  background: rgb(37 99 235 / 8%);
+}
+
+.stat-card strong {
+  color: var(--primary);
+  font-size: 28px;
+}
+
+.stat-card span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}

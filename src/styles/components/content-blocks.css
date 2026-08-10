@@ -1,0 +1,31 @@
+/* Message, AI and analysis blocks */
+
+.message-box,
+.ai-box {
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.message-box {
+  background: #ecfdf5;
+  line-height: 1.55;
+}
+
+.ai-box {
+  margin-top: 12px;
+  background: var(--soft-blue);
+}
+
+.analysis-card {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  border-color: #bbf7d0;
+  background: linear-gradient(180deg, #fff, #f0fdf4);
+}
+
+.analysis-empty {
+  align-content: start;
+  color: var(--muted);
+  border-style: dashed;
+}

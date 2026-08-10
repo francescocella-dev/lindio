@@ -1,0 +1,83 @@
+/* Post-Supabase cleanup */
+
+.app-alert {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  padding: 13px 14px;
+}
+
+.app-alert strong {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.app-alert span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.app-alert .button {
+  margin-left: auto;
+  min-height: 34px;
+  white-space: nowrap;
+}
+
+.app-alert-success {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.app-alert-success strong {
+  color: #166534;
+}
+
+.app-alert-info {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.app-alert-info strong {
+  color: var(--primary);
+}
+
+.app-alert-error {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.app-alert-error strong {
+  color: #991b1b;
+}
+
+.empty-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.settings-action-feedback {
+  align-self: center;
+  color: var(--success);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+@media (max-width: 620px) {
+  .app-alert {
+    display: grid;
+  }
+
+  .app-alert .button {
+    width: 100%;
+    margin-left: 0;
+  }
+}

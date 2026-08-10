@@ -1,0 +1,67 @@
+/* Small reusable utilities */
+
+.form-intake-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #dbeafe;
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, #fff, #f8fbff);
+  padding: 14px;
+}
+
+.single-action {
+  grid-template-columns: 1fr;
+}
+
+.next-action-box {
+  display: grid;
+  gap: 4px;
+  margin: 12px 0;
+  border-radius: 14px;
+  background: var(--soft-blue);
+  padding: 13px;
+}
+
+.next-action-box span {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.next-action-box strong {
+  font-size: 16px;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.compact-notes textarea {
+  min-height: 92px;
+}
+
+.compact-notes .notes-list p {
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+@media (min-width: 760px) {
+  .requests-toolbar .chips {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .requests-toolbar .button-chip,
+  .requests-toolbar .button-chip-active {
+    min-height: 32px;
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+
+  .lead-card {
+    grid-template-columns: 1.4fr 120px 150px 1fr 150px 90px;
+    align-items: center;
+  }
+}

@@ -1,0 +1,24 @@
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+
+.env
+.env.*
+!.env.example
+
+work/
+outputs/
+*.log
+
+# Local Netlify state
+.netlify/
+
+# Local Supabase CLI state
+supabase/.temp/
+supabase/.branches/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db

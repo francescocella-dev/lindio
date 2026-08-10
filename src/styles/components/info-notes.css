@@ -1,0 +1,34 @@
+/* Info rows and compact notes */
+
+.info-row {
+  display: grid;
+  gap: 3px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.info-row span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.info-row strong {
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.notes-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.notes-list div {
+  border-left: 3px solid var(--primary);
+  padding: 8px 0 8px 10px;
+}
+
+.notes-list p {
+  margin-bottom: 0;
+}

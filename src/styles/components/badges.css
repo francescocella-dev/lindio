@@ -1,0 +1,52 @@
+/* Generic badges */
+
+.badge-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.badge {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.badge-blue {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.badge-amber {
+  color: #b45309;
+  background: #fef3c7;
+}
+
+.badge-violet {
+  color: #6d28d9;
+  background: #ede9fe;
+}
+
+.badge-cyan {
+  color: #0e7490;
+  background: #cffafe;
+}
+
+.badge-gray,
+.badge-neutral {
+  color: #4b5563;
+  background: #f3f4f6;
+}
+
+.badge-green {
+  color: #15803d;
+  background: #dcfce7;
+}
+
+.badge-red {
+  color: #b91c1c;
+  background: #fee2e2;
+}

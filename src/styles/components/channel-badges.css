@@ -1,0 +1,104 @@
+/* Channel badges and icons */
+
+.channel-badge,
+.channel-icon-badge {
+  --channel-bg: #eff6ff;
+  --channel-fg: var(--primary);
+  --channel-border: #dbeafe;
+
+  color: var(--channel-fg);
+  background: var(--channel-bg);
+  border-color: var(--channel-border);
+}
+
+.channel-badge {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid var(--channel-border);
+  border-radius: 999px;
+  padding: 5px 8px 5px 5px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.channel-badge strong {
+  color: inherit;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.channel-icon,
+.channel-icon-badge {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.channel-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.channel-icon-badge {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--channel-border);
+  border-radius: 12px;
+}
+
+.channel-icon svg,
+.channel-icon-badge svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+}
+
+.channel-badge-compact {
+  padding-right: 7px;
+}
+
+.channel-whatsapp {
+  --channel-bg: #ecfdf5;
+  --channel-fg: #128c55;
+  --channel-border: #bbf7d0;
+}
+
+.channel-phone {
+  --channel-bg: #eff6ff;
+  --channel-fg: #2563eb;
+  --channel-border: #bfdbfe;
+}
+
+.channel-email {
+  --channel-bg: #f5f3ff;
+  --channel-fg: #7c3aed;
+  --channel-border: #ddd6fe;
+}
+
+.channel-instagram {
+  --channel-bg: #fff1f2;
+  --channel-fg: #db2777;
+  --channel-border: #fecdd3;
+}
+
+.channel-facebook {
+  --channel-bg: #eff6ff;
+  --channel-fg: #1d4ed8;
+  --channel-border: #bfdbfe;
+}
+
+.channel-web {
+  --channel-bg: #ecfeff;
+  --channel-fg: #0891b2;
+  --channel-border: #a5f3fc;
+}
+
+.channel-other {
+  --channel-bg: #f8fafc;
+  --channel-fg: #64748b;
+  --channel-border: #e2e8f0;
+}

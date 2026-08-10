@@ -1,0 +1,38 @@
+/* Legacy report widgets still used by older components */
+
+.report-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.report-copy {
+  margin-bottom: 0;
+  color: var(--text);
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.bar-list {
+  display: grid;
+  gap: 12px;
+}
+
+.bar-list > div {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.bar-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e5e7eb;
+}
+
+.bar-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+}
