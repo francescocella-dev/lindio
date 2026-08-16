@@ -4,46 +4,23 @@ import StatCard from "../components/dashboard/StatCard.jsx";
 import TodayTaskList from "../components/dashboard/TodayTaskList.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
 import Button from "../components/ui/Button.jsx";
-
-function isSameDay(value, targetDate = new Date()) {
-  if (!value) return false;
-
-  const date = new Date(value);
-
-  return (
-    date.getFullYear() === targetDate.getFullYear() &&
-    date.getMonth() === targetDate.getMonth() &&
-    date.getDate() === targetDate.getDate()
-  );
-}
-
-function isPast(value) {
-  if (!value) return false;
-
-  return new Date(value).getTime() < new Date().getTime();
-}
-
-function isOpenLead(lead) {
-  return !["Vinta", "Persa"].includes(lead.status);
-}
-
-function sortByFollowUp(leads) {
-  return [...leads].sort((a, b) => {
-    const aTime = a.followUpAt ? new Date(a.followUpAt).getTime() : Number.MAX_SAFE_INTEGER;
-    const bTime = b.followUpAt ? new Date(b.followUpAt).getTime() : Number.MAX_SAFE_INTEGER;
-
-    if (aTime !== bTime) return aTime - bTime;
-
-    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-  });
-}
+import {
+  compareActiveLeadPriority,
+  isFollowUpOverdue,
+  isFollowUpToday,
+  isOpenLead
+} from "../utils/leadHelpers.js";
 
 function buildDashboardData(leads) {
+  const now = new Date();
   const openLeads = leads.filter(isOpenLead);
 
-  const todayTasks = sortByFollowUp(
-    openLeads.filter((lead) => isSameDay(lead.followUpAt) || isPast(lead.followUpAt))
-  );
+  const todayTasks = openLeads
+    .filter((lead) =>
+      isFollowUpToday(lead.followUpAt, lead.status, now) ||
+      isFollowUpOverdue(lead.followUpAt, lead.status, now)
+    )
+    .sort((a, b) => compareActiveLeadPriority(a, b, now));
 
   const recentLeads = [...leads]
     .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
@@ -51,8 +28,12 @@ function buildDashboardData(leads) {
 
   return {
     newLeads: leads.filter((lead) => ["Nuova", "Da rispondere"].includes(lead.status)).length,
-    todayFollowUps: openLeads.filter((lead) => isSameDay(lead.followUpAt)).length,
-    overdue: openLeads.filter((lead) => isPast(lead.followUpAt) && !isSameDay(lead.followUpAt)).length,
+    todayFollowUps: openLeads.filter((lead) =>
+      isFollowUpToday(lead.followUpAt, lead.status, now)
+    ).length,
+    overdue: openLeads.filter((lead) =>
+      isFollowUpOverdue(lead.followUpAt, lead.status, now)
+    ).length,
     quotes: leads.filter((lead) => ["Preventivo da preparare", "Preventivo inviato"].includes(lead.status)).length,
     waiting: leads.filter((lead) => lead.status === "In attesa").length,
     openLeads: openLeads.length,

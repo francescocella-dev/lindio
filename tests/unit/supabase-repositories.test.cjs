@@ -30,6 +30,7 @@ function leadDraft(overrides = {}) {
 function leadRow() {
   return {
     id: "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa",
+    version: 1,
     customer_name: "Cliente RPC",
     customer_phone: "",
     customer_email: "",
@@ -72,6 +73,83 @@ test("repository Supabase normalizza il payload prima della RPC di creazione", a
   assert.equal(captured.args.p_lead.customer_name, "Cliente RPC");
   assert.equal(captured.args.p_lead.city, "Potenza");
   assert.equal(lead.notes[0].text, "Richiesta creata");
+});
+
+test("repository Supabase invia la versione attesa e mappa la versione restituita", async () => {
+  let captured;
+  const previousLead = {
+    id: "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa",
+    version: 4,
+    customerName: "Cliente RPC",
+    phone: "",
+    email: "",
+    source: "WhatsApp",
+    serviceType: "Pulizia appartamento",
+    city: "Potenza",
+    address: "",
+    urgency: "Media",
+    status: "Nuova",
+    nextAction: "Rispondere al cliente",
+    followUpAt: "2026-08-11T10:00",
+    estimatedValue: 120,
+    rawMessage: "Richiesta",
+    aiSummary: "",
+    aiSuggestedReply: "",
+    notes: [],
+    createdAt: "2026-08-10T08:00:00.000Z",
+    updatedAt: "2026-08-10T08:00:00.000Z"
+  };
+
+  const client = {
+    rpc: async (name, args) => {
+      captured = { name, args };
+      return {
+        data: {
+          lead: { ...leadRow(), version: 5, status: "In attesa", next_action: "Attendere riscontro" },
+          notes: []
+        },
+        error: null
+      };
+    }
+  };
+
+  const repository = createSupabaseLeadRepository(client);
+  const updated = await repository.update(
+    leadDraft({
+      id: previousLead.id,
+      status: "In attesa",
+      nextAction: "Attendere riscontro"
+    }),
+    previousLead
+  );
+
+  assert.equal(captured.name, "update_lead_with_notes");
+  assert.equal(captured.args.p_expected_version, 4);
+  assert.equal(updated.version, 5);
+});
+
+test("repository Supabase espone i conflitti di versione come ApplicationError", async () => {
+  const client = {
+    rpc: async () => ({
+      data: null,
+      error: { code: "40001", message: "Lead version conflict" }
+    })
+  };
+
+  const repository = createSupabaseLeadRepository(client);
+  const previousLead = {
+    ...leadDraft({ id: "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa" }),
+    id: "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa",
+    version: 2,
+    notes: [],
+    createdAt: "2026-08-10T08:00:00.000Z",
+    updatedAt: "2026-08-10T08:00:00.000Z"
+  };
+
+  await assert.rejects(
+    () => repository.update(previousLead, previousLead),
+    (error) => error?.code === "CONFLICT" && error?.retryable === true
+  );
 });
 
 test("repository Supabase rifiuta input invalido prima di inviare una RPC", async () => {

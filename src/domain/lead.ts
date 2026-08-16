@@ -47,6 +47,7 @@ export interface LeadNote {
 
 export interface Lead {
   id: string;
+  version: number;
   customerName: string;
   phone: string;
   email: string;
@@ -67,7 +68,7 @@ export interface Lead {
   updatedAt: string;
 }
 
-export type LeadDraft = Omit<Lead, "id" | "notes" | "createdAt" | "updatedAt"> & {
+export type LeadDraft = Omit<Lead, "id" | "version" | "notes" | "createdAt" | "updatedAt"> & {
   id?: string;
   notes?: LeadNote[];
   createdAt?: string;

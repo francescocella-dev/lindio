@@ -45,6 +45,7 @@ export function normalizeLead(input: unknown, options: NormalizeLeadOptions = {}
 
   return {
     id: options.keepId && lead.id ? lead.id : createId(),
+    version: 1,
     customerName: lead.customerName,
     phone: lead.phone,
     email: lead.email,
@@ -96,6 +97,7 @@ export function updateLead(leads: Lead[], updatedLead: unknown): Lead[] {
     return {
       ...lead,
       ...normalized,
+      version: Math.max(Number(lead.version) || 1, 1) + 1,
       updatedAt: nowIso()
     };
   });
