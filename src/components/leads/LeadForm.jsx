@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { analyzeLead } from "../../services/aiAdapter.js";
+import { analyzeLead } from "../../services/intakeAnalysisService.js";
 import { LEAD_CHANNELS, LEAD_STATUSES, NEXT_ACTIONS, URGENCY_LEVELS } from "../../utils/constants.js";
 import {
   getStatusWorkflowGuide,
@@ -12,7 +12,7 @@ import Button from "../ui/Button.jsx";
 import Input from "../ui/Input.jsx";
 import Select from "../ui/Select.jsx";
 import Textarea from "../ui/Textarea.jsx";
-import LeadAiPanel from "./LeadAiPanel.jsx";
+import LeadAnalysisPanel from "./LeadAnalysisPanel.jsx";
 import LeadChannelBadge from "./LeadChannelBadge.jsx";
 
 function getDefaultFollowUp() {
@@ -64,7 +64,7 @@ function normalizeDraftBeforeSave(lead) {
   };
 }
 
-function getAiButtonLabel(isAnalyzing, analysis) {
+function getAnalysisButtonLabel(isAnalyzing, analysis) {
   if (isAnalyzing) return "Analisi in corso...";
   if (analysis) return "Rivedi analisi";
   return "Analizza messaggio";
@@ -99,6 +99,11 @@ export default function LeadForm({ onSave, isSaving = false }) {
 
   function patch(field, value) {
     setLead((current) => ({ ...current, [field]: value }));
+
+    if (field === "rawMessage") {
+      setAnalysis(null);
+    }
+
     setFormError("");
   }
 
@@ -140,9 +145,12 @@ export default function LeadForm({ onSave, isSaving = false }) {
     try {
       const result = await analyzeLead(lead.rawMessage);
       setAnalysis(result);
-    } catch {
+    } catch (error) {
       setIsAnalysisOpen(false);
-      setFormError("Non è stato possibile simulare l’analisi AI. Puoi comunque salvare la richiesta manualmente.");
+      setFormError(
+        error?.message ||
+        "Non è stato possibile analizzare il messaggio. Puoi comunque compilare e salvare la richiesta manualmente."
+      );
     } finally {
       setIsAnalyzing(false);
     }
@@ -151,24 +159,24 @@ export default function LeadForm({ onSave, isSaving = false }) {
   function useAnalysis() {
     if (!analysis) return;
 
-    const nextAction = analysis.next_action || "Chiedere informazioni mancanti";
-    const status = normalizeLeadStatus(analysis.suggested_status || getStatusFromNextAction(nextAction));
+    const nextAction = analysis.nextAction || "Rispondere al cliente";
+    const status = normalizeLeadStatus(analysis.suggestedStatus || getStatusFromNextAction(nextAction));
     const suggestedFollowUp = getSuggestedFollowUpForStatus(status);
 
     setLead((current) => ({
       ...current,
-      customerName: current.customerName || analysis.customer_name || "",
+      customerName: current.customerName || analysis.customerName || "",
       phone: current.phone || analysis.phone || "",
       email: current.email || analysis.email || "",
-      serviceType: current.serviceType || analysis.service_type || "",
+      serviceType: current.serviceType || analysis.serviceType || "",
       city: current.city || analysis.city || "",
       urgency: analysis.urgency || current.urgency,
       aiSummary: analysis.summary || "",
-      aiSuggestedReply: analysis.suggested_reply || "",
+      aiSuggestedReply: analysis.suggestedReply || "",
       nextAction,
       status,
       followUpAt: suggestedFollowUp || current.followUpAt,
-      estimatedValue: current.estimatedValue || analysis.estimated_value || ""
+      estimatedValue: current.estimatedValue || analysis.estimatedValue || ""
     }));
 
     setIsAnalysisOpen(false);
@@ -218,11 +226,15 @@ export default function LeadForm({ onSave, isSaving = false }) {
 
           <div className="new-lead-ai-row">
             <Button variant="secondary" type="button" onClick={runAnalysis} disabled={isAnalyzing}>
-              {getAiButtonLabel(isAnalyzing, analysis)}
+              {getAnalysisButtonLabel(isAnalyzing, analysis)}
             </Button>
 
-            {analysis && <span className="new-lead-ai-ready">Analisi pronta</span>}
+            {analysis && <span className="new-lead-ai-ready">Analisi locale pronta</span>}
           </div>
+
+          <p className="form-hint">
+            L'analisi standard usa regole locali nel browser: il testo non viene inviato a servizi AI esterni.
+          </p>
 
           {formError && <p className="form-error">{formError}</p>}
         </section>
@@ -377,7 +389,7 @@ export default function LeadForm({ onSave, isSaving = false }) {
       </form>
 
       {isAnalysisOpen && (
-        <LeadAiPanel
+        <LeadAnalysisPanel
           analysis={analysis}
           isAnalyzing={isAnalyzing}
           onUse={useAnalysis}

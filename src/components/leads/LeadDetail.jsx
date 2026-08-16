@@ -520,7 +520,7 @@ export default function LeadDetail({ lead, onUpdate }) {
         ) : (
           <div className="empty-state">
             <strong>Nessuna risposta suggerita</strong>
-            <p>Le richieste create con AI mock mostreranno qui una bozza copiabile.</p>
+            <p>Le richieste analizzate localmente possono mostrare qui una bozza copiabile.</p>
           </div>
         )}
       </Card>
