@@ -2,7 +2,14 @@ import { useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import EmptyState from "../components/ui/EmptyState.jsx";
 import LeadStatusBadge from "../components/leads/LeadStatusBadge.jsx";
-import { normalizeLeadStatus } from "../utils/leadHelpers.js";
+import {
+  isFinalLeadStatus,
+  isFollowUpDueSoon,
+  isFollowUpOverdue,
+  isOpenLead,
+  normalizeLeadStatus
+} from "../utils/leadHelpers.js";
+import { LEAD_STATUSES } from "../utils/constants.js";
 
 const PERIODS = [
   { label: "Tutto", value: "all" },
@@ -10,15 +17,7 @@ const PERIODS = [
   { label: "Ultimi 7 giorni", value: "7" }
 ];
 
-const OPEN_STATUSES = [
-  "Nuova",
-  "Da rispondere",
-  "Info richieste",
-  "Sopralluogo da fissare",
-  "Preventivo da preparare",
-  "Preventivo inviato",
-  "In attesa"
-];
+const OPEN_STATUSES = LEAD_STATUSES.filter((status) => !isFinalLeadStatus(status));
 
 function toDate(value) {
   if (!value) return null;
@@ -32,37 +31,6 @@ function isSameOrAfter(date, minDate) {
   if (!date || !minDate) return true;
 
   return date.getTime() >= minDate.getTime();
-}
-
-function isFinalLead(lead) {
-  const status = normalizeLeadStatus(lead.status);
-
-  return ["Vinta", "Persa"].includes(status);
-}
-
-function isOpenLead(lead) {
-  return !isFinalLead(lead);
-}
-
-function isOverdue(value) {
-  const date = toDate(value);
-
-  if (!date) return false;
-
-  return date.getTime() < Date.now();
-}
-
-function isDueSoon(value) {
-  const date = toDate(value);
-
-  if (!date) return false;
-
-  const now = new Date();
-  const limit = new Date();
-
-  limit.setDate(now.getDate() + 2);
-
-  return date.getTime() >= now.getTime() && date.getTime() <= limit.getTime();
 }
 
 function getEstimatedValue(lead) {
@@ -142,12 +110,17 @@ function getMostUsed(items, fallback = "-") {
 }
 
 function buildReport(leads) {
+  const now = new Date();
   const total = leads.length;
   const won = leads.filter((lead) => normalizeLeadStatus(lead.status) === "Vinta");
   const lost = leads.filter((lead) => normalizeLeadStatus(lead.status) === "Persa");
   const open = leads.filter(isOpenLead);
-  const overdue = open.filter((lead) => isOverdue(lead.followUpAt));
-  const dueSoon = open.filter((lead) => isDueSoon(lead.followUpAt));
+  const overdue = open.filter((lead) =>
+    isFollowUpOverdue(lead.followUpAt, lead.status, now)
+  );
+  const dueSoon = open.filter((lead) =>
+    isFollowUpDueSoon(lead.followUpAt, lead.status, now, 2)
+  );
   const quotesSent = open.filter((lead) => normalizeLeadStatus(lead.status) === "Preventivo inviato");
   const infoMissing = open.filter((lead) => normalizeLeadStatus(lead.status) === "Info richieste");
   const waiting = open.filter((lead) => normalizeLeadStatus(lead.status) === "In attesa");

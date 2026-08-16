@@ -15,28 +15,39 @@ function getLatestNote(notes) {
 export default function LeadNotes({ lead, onUpdate }) {
   const [note, setNote] = useState("");
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const notes = Array.isArray(lead.notes) ? lead.notes : [];
   const latestNote = getLatestNote(notes);
 
-  function addNote() {
+  async function addNote() {
     const text = note.trim();
 
-    if (!text) return;
+    if (!text || isSaving) return;
 
-    onUpdate({
-      ...lead,
-      notes: [
-        {
-          date: new Date().toISOString(),
-          text
-        },
-        ...notes
-      ]
-    });
+    setIsSaving(true);
+    setSaveError("");
 
-    setNote("");
-    setIsHistoryOpen(true);
+    try {
+      await Promise.resolve(onUpdate({
+        ...lead,
+        notes: [
+          {
+            date: new Date().toISOString(),
+            text
+          },
+          ...notes
+        ]
+      }));
+
+      setNote("");
+      setIsHistoryOpen(true);
+    } catch (error) {
+      setSaveError(error?.message || "Non è stato possibile salvare la nota.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -49,12 +60,18 @@ export default function LeadNotes({ lead, onUpdate }) {
         <Textarea
           label="Nuova nota"
           value={note}
-          onChange={setNote}
+          onChange={(value) => {
+            setNote(value);
+            setSaveError("");
+          }}
           placeholder="Esempio: cliente richiamato, inviate foto su WhatsApp..."
+          disabled={isSaving}
         />
 
-        <Button variant="secondary" type="button" onClick={addNote}>
-          Aggiungi nota
+        {saveError && <p className="form-error">{saveError}</p>}
+
+        <Button variant="secondary" type="button" onClick={addNote} disabled={isSaving || !note.trim()}>
+          {isSaving ? "Salvataggio..." : "Aggiungi nota"}
         </Button>
       </div>
 

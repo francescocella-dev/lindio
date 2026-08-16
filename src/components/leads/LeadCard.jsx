@@ -1,27 +1,12 @@
 import { Link } from "react-router-dom";
 import { formatDateTime } from "../../utils/formatDate.js";
-import { normalizeLeadStatus } from "../../utils/leadHelpers.js";
+import {
+  isFollowUpOverdue,
+  isFollowUpToday,
+  normalizeLeadStatus
+} from "../../utils/leadHelpers.js";
 import LeadChannelBadge from "./LeadChannelBadge.jsx";
 import LeadStatusBadge from "./LeadStatusBadge.jsx";
-
-function isDueToday(value) {
-  if (!value) return false;
-
-  const date = new Date(value);
-  const today = new Date();
-
-  return (
-    date.getFullYear() === today.getFullYear() &&
-    date.getMonth() === today.getMonth() &&
-    date.getDate() === today.getDate()
-  );
-}
-
-function isOverdue(value, status) {
-  if (!value || ["Vinta", "Persa"].includes(normalizeLeadStatus(status))) return false;
-
-  return new Date(value).getTime() < new Date().getTime() && !isDueToday(value);
-}
 
 function formatCompactDate(value) {
   if (!value) return "";
@@ -60,7 +45,7 @@ function getTimeMeta(lead) {
     };
   }
 
-  if (isOverdue(lead.followUpAt, status)) {
+  if (isFollowUpOverdue(lead.followUpAt, status)) {
     return {
       label: "Scaduta",
       detail: formatDateTime(lead.followUpAt),
@@ -68,7 +53,7 @@ function getTimeMeta(lead) {
     };
   }
 
-  if (isDueToday(lead.followUpAt)) {
+  if (isFollowUpToday(lead.followUpAt, status)) {
     return {
       label: "Oggi",
       detail: formatCompactTime(lead.followUpAt),

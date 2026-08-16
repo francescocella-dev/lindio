@@ -2,29 +2,9 @@ import { Link } from "react-router-dom";
 import EmptyState from "../ui/EmptyState.jsx";
 import LeadChannelBadge from "../leads/LeadChannelBadge.jsx";
 import LeadStatusBadge from "../leads/LeadStatusBadge.jsx";
+import { isFollowUpOverdue, isFollowUpToday } from "../../utils/leadHelpers.js";
 
-function isSameDay(value, targetDate = new Date()) {
-  if (!value) return false;
-
-  const date = new Date(value);
-
-  return (
-    date.getFullYear() === targetDate.getFullYear() &&
-    date.getMonth() === targetDate.getMonth() &&
-    date.getDate() === targetDate.getDate()
-  );
-}
-
-function isOverdue(value) {
-  if (!value) return false;
-
-  const date = new Date(value);
-  const today = new Date();
-
-  return date.getTime() < today.getTime() && !isSameDay(value, today);
-}
-
-function formatTaskTime(value) {
+function formatTaskTime(value, status) {
   if (!value) {
     return {
       label: "Da pianificare",
@@ -53,7 +33,7 @@ function formatTaskTime(value) {
     month: "short"
   }).format(date);
 
-  if (isOverdue(value)) {
+  if (isFollowUpOverdue(value, status)) {
     return {
       label: "Scaduto",
       value: `${day}`,
@@ -61,7 +41,7 @@ function formatTaskTime(value) {
     };
   }
 
-  if (isSameDay(value)) {
+  if (isFollowUpToday(value, status)) {
     return {
       label: "Oggi",
       value: time,
@@ -90,7 +70,9 @@ function getMetaLine(lead) {
 
 export default function TodayTaskList({ leads }) {
   const visibleLeads = leads.slice(0, 7);
-  const overdueCount = leads.filter((lead) => isOverdue(lead.followUpAt)).length;
+  const overdueCount = leads.filter((lead) =>
+    isFollowUpOverdue(lead.followUpAt, lead.status)
+  ).length;
 
   return (
     <section className="today-task-card today-task-card-priority">
@@ -127,7 +109,7 @@ export default function TodayTaskList({ leads }) {
       {visibleLeads.length > 0 ? (
         <div className="dashboard-task-list">
           {visibleLeads.map((lead) => {
-            const timing = formatTaskTime(lead.followUpAt);
+            const timing = formatTaskTime(lead.followUpAt, lead.status);
             const overdue = timing.tone === "overdue";
             const metaLine = getMetaLine(lead);
 

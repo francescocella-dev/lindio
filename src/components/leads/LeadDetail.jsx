@@ -159,6 +159,8 @@ export default function LeadDetail({ lead, onUpdate }) {
   const [editDraft, setEditDraft] = useState(() => buildEditDraft(lead));
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editError, setEditError] = useState("");
+  const [isSavingWorkflow, setIsSavingWorkflow] = useState(false);
+  const [workflowError, setWorkflowError] = useState("");
 
   function openEdit() {
     setEditDraft(buildEditDraft(lead));
@@ -201,16 +203,25 @@ export default function LeadDetail({ lead, onUpdate }) {
     }
   }
 
-  async function updateWorkflow(patch, noteText) {
-    const updatedLead = addSystemNote(
-      {
-        ...lead,
-        ...patch
-      },
-      noteText
-    );
+  async function updateWorkflow(patch, noteText = "") {
+    if (isSavingWorkflow) return;
 
-    await Promise.resolve(onUpdate(updatedLead));
+    const baseLead = {
+      ...lead,
+      ...patch
+    };
+    const updatedLead = noteText ? addSystemNote(baseLead, noteText) : baseLead;
+
+    setIsSavingWorkflow(true);
+    setWorkflowError("");
+
+    try {
+      await Promise.resolve(onUpdate(updatedLead));
+    } catch (error) {
+      setWorkflowError(error?.message || "Non è stato possibile salvare il workflow.");
+    } finally {
+      setIsSavingWorkflow(false);
+    }
   }
 
   function handleStatusChange(status) {
@@ -218,7 +229,7 @@ export default function LeadDetail({ lead, onUpdate }) {
     const suggestedAction = getSuggestedNextActionForStatus(normalizedStatus);
     const suggestedFollowUp = getSuggestedFollowUpForStatus(normalizedStatus);
 
-    updateWorkflow(
+    void updateWorkflow(
       {
         status: normalizedStatus,
         nextAction: suggestedAction,
@@ -229,7 +240,7 @@ export default function LeadDetail({ lead, onUpdate }) {
   }
 
   function handleNextActionChange(nextAction) {
-    updateWorkflow(
+    void updateWorkflow(
       {
         nextAction,
         followUpAt: nextAction === "Nessuna azione" ? "" : lead.followUpAt
@@ -239,32 +250,29 @@ export default function LeadDetail({ lead, onUpdate }) {
   }
 
   function handleFollowUpChange(followUpAt) {
-    onUpdate({
-      ...lead,
-      followUpAt
-    });
+    void updateWorkflow({ followUpAt });
   }
 
   function markAsWon() {
-    const updatedLead = addSystemNote(lead, "Richiesta segnata come vinta");
-
-    onUpdate({
-      ...updatedLead,
-      status: "Vinta",
-      nextAction: "Nessuna azione",
-      followUpAt: ""
-    });
+    void updateWorkflow(
+      {
+        status: "Vinta",
+        nextAction: "Nessuna azione",
+        followUpAt: ""
+      },
+      "Richiesta segnata come vinta"
+    );
   }
 
   function markAsLost() {
-    const updatedLead = addSystemNote(lead, "Richiesta segnata come persa");
-
-    onUpdate({
-      ...updatedLead,
-      status: "Persa",
-      nextAction: "Nessuna azione",
-      followUpAt: ""
-    });
+    void updateWorkflow(
+      {
+        status: "Persa",
+        nextAction: "Nessuna azione",
+        followUpAt: ""
+      },
+      "Richiesta segnata come persa"
+    );
   }
 
   async function handleCopyReply() {
@@ -317,6 +325,7 @@ export default function LeadDetail({ lead, onUpdate }) {
             value={normalizedStatus}
             options={LEAD_STATUSES}
             onChange={handleStatusChange}
+            disabled={isSavingWorkflow}
           />
 
           <Select
@@ -324,6 +333,7 @@ export default function LeadDetail({ lead, onUpdate }) {
             value={lead.nextAction || getSuggestedNextActionForStatus(normalizedStatus)}
             options={NEXT_ACTIONS}
             onChange={handleNextActionChange}
+            disabled={isSavingWorkflow}
           />
 
           <Input
@@ -331,16 +341,19 @@ export default function LeadDetail({ lead, onUpdate }) {
             type="datetime-local"
             value={getDateTimeInputValue(lead.followUpAt)}
             onChange={handleFollowUpChange}
-            disabled={finalStatus}
+            disabled={finalStatus || isSavingWorkflow}
           />
         </div>
 
+        {workflowError && <p className="form-error">{workflowError}</p>}
+        {isSavingWorkflow && <p className="form-hint">Salvataggio workflow...</p>}
+
         <div className="split-actions detail-result-actions">
-          <Button variant="success" type="button" onClick={markAsWon}>
+          <Button variant="success" type="button" onClick={markAsWon} disabled={isSavingWorkflow}>
             Segna vinta
           </Button>
 
-          <Button variant="danger" type="button" onClick={markAsLost}>
+          <Button variant="danger" type="button" onClick={markAsLost} disabled={isSavingWorkflow}>
             Segna persa
           </Button>
         </div>

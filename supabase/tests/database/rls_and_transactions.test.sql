@@ -104,15 +104,18 @@ select throws_ok(
   $$,
   '42501',
   null,
-  'RLS blocks a direct lead insert into another tenant'
+  'direct lead writes are blocked outside the transactional RPC'
 );
+
+reset role;
 
 select throws_ok(
   $$
-    insert into public.lead_notes (organization_id, lead_id, note)
+    insert into public.lead_notes (organization_id, lead_id, author_id, note)
     values (
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid,
       'b1000000-0000-4000-8000-000000000001'::uuid,
+      '11111111-1111-4111-8111-111111111111'::uuid,
       'Cross-tenant association attempt'
     )
   $$,
@@ -121,10 +124,15 @@ select throws_ok(
   'composite foreign key blocks associating a tenant A note with a tenant B lead'
 );
 
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
+
 select lives_ok(
   $$
     select public.update_lead_with_notes(
       (select id from public.leads where raw_message = 'transaction-marker-a'),
+      1,
       '{
         "customer_name":"Tenant A transaction test",
         "customer_phone":"",
@@ -173,6 +181,7 @@ select throws_ok(
   $$
     select public.update_lead_with_notes(
       'a1000000-0000-4000-8000-000000000001'::uuid,
+      1,
       '{"customer_name":"Forbidden update","source":"WhatsApp","urgency":"Media","status":"Nuova"}'::jsonb,
       '[]'::jsonb
     )

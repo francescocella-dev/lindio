@@ -14,7 +14,11 @@ select ok(
   'leads enforces the next action domain at database level'
 );
 
-set local role authenticated;
+-- These are schema-contract tests, not application-permission tests.
+-- M4 intentionally revokes direct lead writes from the authenticated role;
+-- workflow_reliability.test.sql verifies that boundary separately.
+-- Keep a JWT subject so auth.uid() can satisfy created_by defaults while the
+-- test runner retains its privileged role and can exercise raw constraints.
 set local request.jwt.claim.role = 'authenticated';
 set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
 
@@ -59,7 +63,7 @@ select lives_ok(
       'Nuova'
     )
   $$,
-  'direct inserts keep a safe valid next-action default'
+  'schema default keeps a safe valid next-action value'
 );
 
 select * from finish();

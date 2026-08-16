@@ -4,7 +4,13 @@ import LeadList from "../components/leads/LeadList.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
 import Input from "../components/ui/Input.jsx";
 import Button from "../components/ui/Button.jsx";
-import { normalizeLeadStatus } from "../utils/leadHelpers.js";
+import {
+  compareActiveLeadPriority,
+  isFinalLeadStatus,
+  isFollowUpOverdue,
+  isOpenLead,
+  normalizeLeadStatus
+} from "../utils/leadHelpers.js";
 
 const ACTIVE_FILTERS = [
   {
@@ -30,7 +36,7 @@ const ACTIVE_FILTERS = [
   },
   {
     label: "Scadute",
-    match: (lead) => isOverdue(lead.followUpAt, lead.status)
+    match: (lead) => isFollowUpOverdue(lead.followUpAt, lead.status)
   },
   {
     label: "In attesa",
@@ -57,56 +63,13 @@ function normalize(value) {
   return String(value || "").toLowerCase().trim();
 }
 
-function isToday(value) {
-  if (!value) return false;
-
-  const date = new Date(value);
-  const today = new Date();
-
-  return (
-    date.getFullYear() === today.getFullYear() &&
-    date.getMonth() === today.getMonth() &&
-    date.getDate() === today.getDate()
-  );
-}
-
-function isFinalLead(lead) {
-  return ["Vinta", "Persa"].includes(normalizeLeadStatus(lead.status));
-}
-
-function isOpenLead(lead) {
-  return !isFinalLead(lead);
-}
-
-function isOverdue(value, status) {
-  if (!value || ["Vinta", "Persa"].includes(normalizeLeadStatus(status))) return false;
-
-  return new Date(value).getTime() < new Date().getTime() && !isToday(value);
-}
-
 function isQuoteLead(lead) {
   return ["Preventivo da preparare", "Preventivo inviato"].includes(normalizeLeadStatus(lead.status));
 }
 
 function sortActiveLeads(leads) {
-  return [...leads].sort((a, b) => {
-    const aOverdue = isOverdue(a.followUpAt, a.status);
-    const bOverdue = isOverdue(b.followUpAt, b.status);
-
-    if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
-
-    const aToday = isToday(a.followUpAt);
-    const bToday = isToday(b.followUpAt);
-
-    if (aToday !== bToday) return aToday ? -1 : 1;
-
-    const aTime = a.followUpAt ? new Date(a.followUpAt).getTime() : Number.MAX_SAFE_INTEGER;
-    const bTime = b.followUpAt ? new Date(b.followUpAt).getTime() : Number.MAX_SAFE_INTEGER;
-
-    if (aTime !== bTime) return aTime - bTime;
-
-    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-  });
+  const now = new Date();
+  return [...leads].sort((a, b) => compareActiveLeadPriority(a, b, now));
 }
 
 function sortArchivedLeads(leads) {
@@ -144,7 +107,7 @@ function buildSummary(openLeads, archivedLeads) {
   return {
     open: openLeads.length,
     toReply: openLeads.filter((lead) => ["Nuova", "Da rispondere"].includes(normalizeLeadStatus(lead.status))).length,
-    overdue: openLeads.filter((lead) => isOverdue(lead.followUpAt, lead.status)).length,
+    overdue: openLeads.filter((lead) => isFollowUpOverdue(lead.followUpAt, lead.status)).length,
     quotes: openLeads.filter(isQuoteLead).length,
     archived: archivedLeads.length
   };
@@ -167,7 +130,10 @@ export default function LeadsPage() {
   );
 
   const openLeads = useMemo(() => normalizedLeads.filter(isOpenLead), [normalizedLeads]);
-  const archivedLeads = useMemo(() => normalizedLeads.filter(isFinalLead), [normalizedLeads]);
+  const archivedLeads = useMemo(
+    () => normalizedLeads.filter((lead) => isFinalLeadStatus(lead.status)),
+    [normalizedLeads]
+  );
 
   const summary = useMemo(() => buildSummary(openLeads, archivedLeads), [openLeads, archivedLeads]);
 

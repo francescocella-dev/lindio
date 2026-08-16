@@ -1,3 +1,4 @@
+import { ApplicationError } from "../application/applicationError.ts";
 import { toDatabaseDateTime, toLocalDateTimeInputValue } from "../domain/dateTime.ts";
 import {
   DEFAULT_LEAD_CHANNEL,
@@ -16,7 +17,10 @@ import { toLeadPersistenceInput } from "../domain/leadValidation.ts";
 import type { LeadRepository } from "./leadRepository.ts";
 
 interface SupabaseErrorLike {
+  code?: string;
   message?: string;
+  details?: string;
+  hint?: string;
 }
 
 interface SupabaseResult<T = unknown> {
@@ -35,6 +39,11 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function stringValue(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
+}
+
+function positiveInteger(value: unknown, fallback = 1): number {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : fallback;
 }
 
 function nonNegativeNumber(value: unknown): number {
@@ -61,6 +70,7 @@ function mapLeadRow(value: unknown, notes: LeadNote[] = []): Lead {
 
   return {
     id: stringValue(row.id),
+    version: positiveInteger(row.version),
     customerName: stringValue(row.customer_name),
     phone: stringValue(row.customer_phone),
     email: stringValue(row.customer_email),
@@ -110,8 +120,8 @@ function isSameNote(a: LeadNote, b: LeadNote): boolean {
     : a.text === b.text && a.date === b.date;
 }
 
-function getNewNotes(previousLead: Lead | undefined, updatedLead: LeadDraft): string[] {
-  const previousNotes = Array.isArray(previousLead?.notes) ? previousLead.notes : [];
+function getNewNotes(previousLead: Lead, updatedLead: LeadDraft): string[] {
+  const previousNotes = Array.isArray(previousLead.notes) ? previousLead.notes : [];
   const updatedNotes = Array.isArray(updatedLead.notes) ? updatedLead.notes : [];
 
   return updatedNotes
@@ -123,9 +133,48 @@ function getNewNotes(previousLead: Lead | undefined, updatedLead: LeadDraft): st
     .filter(Boolean);
 }
 
+function toSupabaseApplicationError(error: SupabaseErrorLike): ApplicationError {
+  const originalMessage = error.message || "Errore Supabase non specificato.";
+
+  switch (error.code) {
+    case "40001":
+      return new ApplicationError(
+        "CONFLICT",
+        "Questa richiesta è stata aggiornata da un’altra operazione. Ripeti la modifica sui dati più recenti.",
+        { cause: error, retryable: true }
+      );
+    case "42501":
+      return new ApplicationError(
+        "AUTHORIZATION",
+        "Non hai i permessi per modificare questa richiesta nel workspace corrente.",
+        { cause: error }
+      );
+    case "P0002":
+      return new ApplicationError(
+        "NOT_FOUND",
+        "La richiesta non esiste più oppure non è accessibile.",
+        { cause: error }
+      );
+    case "22023":
+    case "22P02":
+    case "23514":
+      return new ApplicationError(
+        "VALIDATION",
+        "Il database ha rifiutato i dati della richiesta perché non rispettano il contratto applicativo.",
+        { cause: error }
+      );
+    default:
+      return new ApplicationError(
+        "UNAVAILABLE",
+        "Servizio dati temporaneamente non disponibile. Riprova tra poco.",
+        { cause: { ...error, originalMessage }, retryable: true }
+      );
+  }
+}
+
 function throwIfError(error: SupabaseErrorLike | null): void {
   if (!error) return;
-  throw new Error(error.message || "Errore Supabase non specificato.");
+  throw toSupabaseApplicationError(error);
 }
 
 export function createSupabaseLeadRepository(client: SupabaseClientPort): LeadRepository {
@@ -172,7 +221,10 @@ export function createSupabaseLeadRepository(client: SupabaseClientPort): LeadRe
 
     async create(input: LeadDraft, organizationId: string): Promise<Lead> {
       if (!organizationId) {
-        throw new Error("Organization ID mancante. Impossibile creare la richiesta.");
+        throw new ApplicationError(
+          "VALIDATION",
+          "Organization ID mancante. Impossibile creare la richiesta."
+        );
       }
 
       const result = await client.rpc("create_lead_with_initial_note", {
@@ -188,13 +240,21 @@ export function createSupabaseLeadRepository(client: SupabaseClientPort): LeadRe
       return mapLeadRow(data.lead, notes);
     },
 
-    async update(input: LeadDraft, previousLead?: Lead): Promise<Lead> {
+    async update(input: LeadDraft, previousLead: Lead): Promise<Lead> {
       if (!input.id) {
-        throw new Error("ID richiesta mancante. Impossibile salvare le modifiche.");
+        throw new ApplicationError("VALIDATION", "ID richiesta mancante. Impossibile salvare le modifiche.");
+      }
+
+      if (!previousLead?.id || previousLead.id !== input.id) {
+        throw new ApplicationError(
+          "VALIDATION",
+          "Versione precedente della richiesta non disponibile. Ricarica i dati e riprova."
+        );
       }
 
       const result = await client.rpc("update_lead_with_notes", {
         p_lead_id: input.id,
+        p_expected_version: positiveInteger(previousLead.version),
         p_lead: mapLeadToRpcPayload(input),
         p_new_notes: getNewNotes(previousLead, input)
       });

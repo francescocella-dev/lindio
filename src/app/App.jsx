@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { isAccountSetupRequiredError } from "../domain/account.ts";
+import { isApplicationError, toApplicationError } from "../application/applicationError.ts";
 import { buildMockLeads } from "../data/mockLeads.js";
 import {
   bootstrapAccount,
@@ -54,13 +55,7 @@ function getFriendlyAuthError(error) {
 }
 
 function getFriendlyDataError(error) {
-  const message = error?.message || "";
-
-  if (message.toLowerCase().includes("row-level security")) {
-    return "Operazione bloccata dalle regole di sicurezza. Controlla il profilo aziendale.";
-  }
-
-  return message || "Errore durante il caricamento dei dati.";
+  return toApplicationError(error, "Errore durante il caricamento dei dati.").message;
 }
 
 export default function App() {
@@ -87,7 +82,12 @@ export default function App() {
   );
 
   const accountLoadId = useRef(0);
+  const leadsRef = useRef(leads);
   const location = useLocation();
+
+  useEffect(() => {
+    leadsRef.current = leads;
+  }, [leads]);
   const authUser = isDemoMode ? getDemoUser() : authSession?.user || null;
   const isLoggedIn = Boolean(isDemoMode || authSession?.user);
   const isDatabaseMode = Boolean(
@@ -421,53 +421,81 @@ export default function App() {
       leads,
 
       addLead: async (lead) => {
-        if (isDatabaseMode) {
-          const createdLead = await createSupabaseLead(lead, organization.id);
+        setDataError("");
+
+        try {
+          if (isDatabaseMode) {
+            const createdLead = await createSupabaseLead(lead, organization.id);
+            setLeads((currentLeads) => [createdLead, ...currentLeads]);
+            return createdLead;
+          }
+
+          if (!isDemoMode) {
+            throw new Error("Accedi o apri la demo prima di creare una richiesta.");
+          }
+
+          const createdLead = createLead(lead);
           setLeads((currentLeads) => [createdLead, ...currentLeads]);
           return createdLead;
+        } catch (error) {
+          const applicationError = toApplicationError(
+            error,
+            "Errore durante la creazione della richiesta."
+          );
+          setDataError(applicationError.message);
+          throw applicationError;
         }
-
-        if (!isDemoMode) {
-          throw new Error("Accedi o apri la demo prima di creare una richiesta.");
-        }
-
-        const createdLead = createLead(lead);
-        setLeads((currentLeads) => [createdLead, ...currentLeads]);
-        return createdLead;
       },
 
       updateLead: async (lead) => {
-        const previousLead = leads.find((item) => item.id === lead.id);
+        const previousLead = leadsRef.current.find((item) => item.id === lead.id);
+
+        if (!previousLead) {
+          const error = toApplicationError(
+            new Error("La richiesta non è più disponibile nello stato locale."),
+            "La richiesta non è più disponibile."
+          );
+          setDataError(error.message);
+          throw error;
+        }
+
+        setDataError("");
 
         if (isDemoMode) {
-          setLeads((currentLeads) => updateLocalLeadRecord(currentLeads, lead));
-          return;
+          const nextLeads = updateLocalLeadRecord(leadsRef.current, lead);
+          const savedLead = nextLeads.find((item) => item.id === lead.id);
+          setLeads(nextLeads);
+          return savedLead;
         }
 
         if (!isDatabaseMode) {
-          throw new Error("Workspace non disponibile.");
+          const error = toApplicationError(new Error("Workspace non disponibile."));
+          setDataError(error.message);
+          throw error;
         }
-
-        setLeads((currentLeads) => updateLocalLeadRecord(currentLeads, lead));
 
         try {
           const savedLead = await updateSupabaseLead(lead, previousLead);
           setLeads((currentLeads) =>
             currentLeads.map((item) => (item.id === savedLead.id ? savedLead : item))
           );
+          setDataError("");
           return savedLead;
         } catch (error) {
-          const friendlyError = getFriendlyDataError(error);
-          setDataError(friendlyError);
+          const applicationError = toApplicationError(error, "Errore durante il salvataggio della richiesta.");
+          setDataError(applicationError.message);
 
-          if (previousLead) {
-            setLeads((currentLeads) =>
-              currentLeads.map((item) => (item.id === previousLead.id ? previousLead : item))
-            );
+          if (isApplicationError(applicationError) && applicationError.code === "CONFLICT") {
+            try {
+              const remoteLeads = await fetchSupabaseLeads();
+              setLeads(remoteLeads);
+            } catch (reloadError) {
+              console.error("Impossibile ricaricare i dati dopo il conflitto", reloadError);
+            }
           }
 
           console.error(error);
-          throw new Error(friendlyError);
+          throw applicationError;
         }
       },
 

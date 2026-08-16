@@ -5,6 +5,14 @@ import {
   STATUS_WORKFLOW_GUIDE
 } from "../domain/leadWorkflow.ts";
 import {
+  compareActiveLeadPriority,
+  isFollowUpDueSoon,
+  isFollowUpOverdue,
+  isFollowUpToday,
+  isOpenLead,
+  isSameLocalDay
+} from "../domain/leadOperations.ts";
+import {
   isFinalLeadStatusValue,
   normalizeLeadStatusValue
 } from "../domain/lead.ts";
@@ -25,17 +33,7 @@ export function mostFrequent(values) {
 
 export function getTodayFollowUps(leads) {
   const now = new Date();
-  const today = [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0")
-  ].join("-");
-
-  return leads.filter((lead) => lead.followUpAt?.startsWith(today));
-}
-
-export function isOpenLead(lead) {
-  return !isFinalLeadStatusValue(lead.status);
+  return leads.filter((lead) => isFollowUpToday(lead.followUpAt, lead.status, now));
 }
 
 export function getLeadSearchText(lead) {
@@ -54,7 +52,13 @@ export function isFinalLeadStatus(status) {
 
 export {
   STATUS_WORKFLOW_GUIDE,
+  compareActiveLeadPriority,
   getStatusWorkflowGuide,
   getSuggestedNextActionForStatus,
-  getSuggestedFollowUpForStatus
+  getSuggestedFollowUpForStatus,
+  isFollowUpDueSoon,
+  isFollowUpOverdue,
+  isFollowUpToday,
+  isOpenLead,
+  isSameLocalDay
 };

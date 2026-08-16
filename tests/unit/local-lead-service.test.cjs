@@ -30,6 +30,7 @@ test("createLead usa il dominio validato e aggiunge la nota iniziale", () => {
   const lead = createLead(draft({ customerName: "  Cliente locale  " }));
 
   assert.match(lead.id, /^lead-/);
+  assert.equal(lead.version, 1);
   assert.equal(lead.customerName, "Cliente locale");
   assert.equal(lead.notes[0].text, "Richiesta creata");
 });
@@ -51,5 +52,6 @@ test("updateLead conserva identità e data di creazione", () => {
 
   assert.equal(updated.id, original.id);
   assert.equal(updated.createdAt, original.createdAt);
+  assert.equal(updated.version, 2);
   assert.equal(updated.status, "In attesa");
 });

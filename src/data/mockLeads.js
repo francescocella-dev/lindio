@@ -162,5 +162,5 @@ export function buildMockLeads() {
     createdAt: mockDate.inDaysAt(-7, "10:00"),
     updatedAt: mockDate.inDaysAt(-3, "10:45")
   }
-  ];
+  ].map((lead) => ({ ...lead, version: 1 }));
 }

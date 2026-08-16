@@ -23,6 +23,8 @@ writeFileSync(resolve(outputDir, "package.json"), '{"type":"commonjs"}\n');
 const tests = [
   "tests/unit/lead-validation.test.cjs",
   "tests/unit/lead-workflow.test.cjs",
+  "tests/unit/lead-operations.test.cjs",
+  "tests/unit/application-error.test.cjs",
   "tests/unit/account-validation.test.cjs",
   "tests/unit/auth-validation.test.cjs",
   "tests/unit/local-lead-service.test.cjs",
