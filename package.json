@@ -18,6 +18,7 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
     "test:pwa": "playwright test --config=playwright.pwa.config.js",
+    "demo:capture": "npm run build && node scripts/capture-demo-screenshots.mjs",
     "check:bundle": "node scripts/check-build-output.mjs",
     "check:release": "node scripts/check-release-hygiene.mjs",
     "quality:deploy": "npm run build && npm run check:bundle && npm run check:release",

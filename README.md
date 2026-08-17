@@ -20,6 +20,81 @@ today / overdue / future operational views
 
 The project is an engineering-focused MVP and portfolio repository. It demonstrates product-oriented software design, but this repository does **not** claim production adoption, revenue, customer counts, production-scale traffic or measured business outcomes.
 
+## Reviewer-ready demo
+
+The explicit Lindio demo is a browser-local, synthetic portfolio workspace. It can be explored without provisioning Supabase credentials and does not mutate a production database.
+
+[Review Lindio in five minutes](docs/reviewer-walkthrough.md)
+
+![Lindio operational Today dashboard](docs/assets/demo/today-desktop.jpg)
+
+## Product tour
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>Operational request inbox</strong>
+      <p>
+        Customer enquiries are grouped by the work still required: replies,
+        missing information, site visits, quotes, overdue follow-ups and waiting states.
+      </p>
+      <img
+        src="docs/assets/demo/leads-desktop.jpg"
+        alt="Lindio operational request inbox"
+      >
+    </td>
+    <td width="50%" valign="top">
+      <strong>Deterministic intake analysis</strong>
+      <p>
+        A local rule-based analyzer extracts supported request context, exposes
+        missing information and proposes editable next steps without calling an external LLM.
+      </p>
+      <img
+        src="docs/assets/demo/intake-analysis-desktop.jpg"
+        alt="Lindio deterministic local intake analysis"
+      >
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>Workflow and follow-up</strong>
+      <p>
+        Each request keeps status, next action, follow-up timing, urgency and
+        customer context together while preserving operator control.
+      </p>
+      <img
+        src="docs/assets/demo/lead-detail-desktop.jpg"
+        alt="Lindio request detail and follow-up workflow"
+      >
+    </td>
+    <td width="50%" valign="top">
+      <strong>Operational reporting</strong>
+      <p>
+        Reports highlight workload, overdue actions, quote follow-ups, channel
+        mix and service demand from the same request workflow.
+      </p>
+      <img
+        src="docs/assets/demo/report-desktop.jpg"
+        alt="Lindio operational report"
+      >
+    </td>
+  </tr>
+</table>
+
+### Mobile-first workflow
+
+The Today dashboard and request inbox remain usable from a narrow mobile viewport.
+
+<p align="center">
+  <img
+    src="docs/assets/demo/today-mobile.jpg"
+    alt="Lindio mobile Today dashboard"
+    width="340"
+  >
+</p>
+
+All people, businesses, contact details, requests and values visible in these screenshots are synthetic portfolio data. The assets are reproducibly generated from the production build with Playwright; see [the demo scenario](docs/demo-scenario.md).
+
 ## Why Lindio exists
 
 Small service businesses often receive enquiries through WhatsApp, phone calls, email, social channels and web forms. The operational problem is not simply storing contacts: it is remembering what has to happen next, what information is still missing and which request needs attention today.
@@ -156,6 +231,28 @@ npm run dev
 
 Open the Vite URL, choose **Esplora la demo**, and the application runs entirely with synthetic browser-local data.
 
+### Reproduce the portfolio screenshots
+
+The README assets use the same deterministic Playwright capture approach as the rest of the portfolio.
+
+Install Chromium once if necessary:
+
+```bash
+npx playwright install chromium
+```
+
+Then run:
+
+```bash
+npm run demo:capture
+```
+
+The command builds the production application, serves it locally with `vite preview`, creates the canonical synthetic scenario through the real UI and writes eight JPEG files under `docs/assets/demo`.
+
+No Supabase credentials or hosted demo account are required.
+
+See [`docs/demo-scenario.md`](docs/demo-scenario.md).
+
 ### Run database-backed mode locally
 
 Start the repository-pinned Supabase CLI:
@@ -258,6 +355,7 @@ For hosted password recovery/auth flows, configure the deployed origin and `/res
 - the default intake analyzer runs locally and does not send message text to an AI provider;
 - demo data is synthetic and browser-local;
 - database seed data is synthetic;
+- portfolio screenshots are generated only from synthetic browser-local demo state;
 - CI and the release-hygiene gate must be green before a public-release decision.
 
 This is an MVP security model, not a claim of formal security certification or an external penetration test.
@@ -280,6 +378,8 @@ See [`docs/architecture/pwa-notifications.md`](docs/architecture/pwa-notificatio
 - [PWA and reminder semantics](docs/architecture/pwa-notifications.md)
 - [Performance and loading architecture](docs/architecture/performance-loading.md)
 - [Testing strategy](docs/architecture/testing-strategy.md)
+- [Synthetic demo scenario and screenshot contract](docs/demo-scenario.md)
+- [Five-minute reviewer walkthrough](docs/reviewer-walkthrough.md)
 - [Release readiness](docs/release-readiness.md)
 
 ## Current status and known limits

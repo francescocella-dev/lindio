@@ -82,7 +82,7 @@ jobs:
         run: npm ci
 
       - name: Start local Supabase with repository-pinned CLI
-        run: npx supabase start
+        run: npx supabase start > /dev/null
 
       - name: Reset database from migrations and seed
         run: npx supabase db reset --local
