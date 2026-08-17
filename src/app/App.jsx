@@ -1,20 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { isAccountSetupRequiredError } from "../domain/account.ts";
 import { isApplicationError, toApplicationError } from "../application/applicationError.ts";
 import { buildMockLeads } from "../data/mockLeads.js";
-import {
-  bootstrapAccount,
-  fetchProfileWithOrganization,
-  getCurrentSession,
-  requestPasswordReset,
-  signInWithEmailPassword,
-  signOutFromSupabase,
-  signUpWithEmailPassword,
-  subscribeToAuthChanges,
-  updateAccountProfile,
-  updateUserPassword
-} from "../services/authService.js";
+import RouteLoadingFallback from "../components/layout/RouteLoadingFallback.jsx";
 import {
   endDemoSession,
   getDemoAccount,
@@ -24,14 +13,13 @@ import {
   updateDemoAccount
 } from "../services/demoSessionService.js";
 import { createLead, updateLead as updateLocalLeadRecord } from "../services/leadsService.js";
-import { getStoredLeads, resetStoredMockData, setStoredLeads } from "../services/storageService.js";
 import {
-  createSupabaseLead,
-  fetchSupabaseLeads,
-  updateSupabaseLead
-} from "../services/supabaseLeadsService.js";
-import { checkReminderNotifications } from "../services/notificationService.js";
-import { isSupabaseConfigured } from "../services/supabaseClient.js";
+  loadAuthService,
+  loadNotificationService,
+  loadSupabaseLeadsService
+} from "../services/runtimeServiceLoader.js";
+import { getStoredLeads, resetStoredMockData, setStoredLeads } from "../services/storageService.js";
+import { isSupabaseConfigured } from "../services/supabaseConfig.js";
 
 const PUBLIC_AUTH_PATHS = new Set(["/login", "/signup", "/forgot-password"]);
 
@@ -88,6 +76,7 @@ export default function App() {
   useEffect(() => {
     leadsRef.current = leads;
   }, [leads]);
+
   const authUser = isDemoMode ? getDemoUser() : authSession?.user || null;
   const isLoggedIn = Boolean(isDemoMode || authSession?.user);
   const isDatabaseMode = Boolean(
@@ -101,52 +90,61 @@ export default function App() {
   }, [isDemoMode, leads]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
+    if (isDemoMode || !isSupabaseConfigured) {
       setIsAuthLoading(false);
       return undefined;
     }
 
     let mounted = true;
+    let unsubscribe = () => {};
+    setIsAuthLoading(true);
 
-    getCurrentSession()
-      .then((session) => {
+    async function initializeAuth() {
+      try {
+        const authService = await loadAuthService();
+
+        if (!mounted) return;
+
+        unsubscribe = authService.subscribeToAuthChanges((event, session) => {
+          if (!mounted) return;
+
+          setAuthSession(session);
+
+          if (event === "PASSWORD_RECOVERY") {
+            setIsPasswordRecovery(true);
+          }
+
+          if (event === "SIGNED_OUT") {
+            setNeedsOnboarding(false);
+            setProfile(null);
+            setOrganization(null);
+            setLeads([]);
+          }
+        });
+
+        const session = await authService.getCurrentSession();
+
         if (mounted) {
           setAuthSession(session);
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         if (mounted) {
           setAuthError(getFriendlyAuthError(error));
         }
-      })
-      .finally(() => {
+      } finally {
         if (mounted) {
           setIsAuthLoading(false);
         }
-      });
-
-    const unsubscribe = subscribeToAuthChanges((event, session) => {
-      if (!mounted) return;
-
-      setAuthSession(session);
-
-      if (event === "PASSWORD_RECOVERY") {
-        setIsPasswordRecovery(true);
       }
+    }
 
-      if (event === "SIGNED_OUT") {
-        setNeedsOnboarding(false);
-        setProfile(null);
-        setOrganization(null);
-        setLeads([]);
-      }
-    });
+    void initializeAuth();
 
     return () => {
       mounted = false;
       unsubscribe();
     };
-  }, []);
+  }, [isDemoMode]);
 
   useEffect(() => {
     const currentLoadId = accountLoadId.current + 1;
@@ -179,7 +177,8 @@ export default function App() {
 
     async function loadWorkspace() {
       try {
-        const account = await fetchProfileWithOrganization();
+        const authService = await loadAuthService();
+        const account = await authService.fetchProfileWithOrganization();
 
         if (cancelled || accountLoadId.current !== currentLoadId) return;
 
@@ -188,7 +187,8 @@ export default function App() {
         setNeedsOnboarding(false);
         setAuthError("");
 
-        const remoteLeads = await fetchSupabaseLeads();
+        const leadService = await loadSupabaseLeadsService();
+        const remoteLeads = await leadService.fetchSupabaseLeads();
 
         if (cancelled || accountLoadId.current !== currentLoadId) return;
         setLeads(remoteLeads);
@@ -217,7 +217,7 @@ export default function App() {
       }
     }
 
-    loadWorkspace();
+    void loadWorkspace();
 
     return () => {
       cancelled = true;
@@ -227,25 +227,45 @@ export default function App() {
   useEffect(() => {
     if (!isLoggedIn || !profile?.notificationEnabled) return undefined;
 
-    function runReminderCheck() {
-      checkReminderNotifications(leads, profile);
+    let cancelled = false;
+
+    async function runReminderCheck() {
+      try {
+        const notificationService = await loadNotificationService();
+
+        if (!cancelled) {
+          await notificationService.checkReminderNotifications(leads, profile);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Impossibile caricare il runtime dei promemoria", error);
+        }
+      }
     }
 
     function handleVisibilityChange() {
       if (!document.hidden) {
-        runReminderCheck();
+        void runReminderCheck();
       }
     }
 
-    runReminderCheck();
+    void runReminderCheck();
 
-    const interval = window.setInterval(runReminderCheck, 30_000);
-    window.addEventListener("focus", runReminderCheck);
+    const interval = window.setInterval(() => {
+      void runReminderCheck();
+    }, 30_000);
+
+    const handleFocus = () => {
+      void runReminderCheck();
+    };
+
+    window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
+      cancelled = true;
       window.clearInterval(interval);
-      window.removeEventListener("focus", runReminderCheck);
+      window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [isLoggedIn, leads, profile]);
@@ -257,7 +277,8 @@ export default function App() {
     setDataError("");
 
     try {
-      const remoteLeads = await fetchSupabaseLeads();
+      const leadService = await loadSupabaseLeadsService();
+      const remoteLeads = await leadService.fetchSupabaseLeads();
       setLeads(remoteLeads);
     } catch (error) {
       const friendlyError = getFriendlyDataError(error);
@@ -289,7 +310,8 @@ export default function App() {
         setAuthError("");
 
         try {
-          const data = await signInWithEmailPassword(email, password);
+          const authService = await loadAuthService();
+          const data = await authService.signInWithEmailPassword(email, password);
           setAuthSession(data.session || null);
           return data;
         } catch (error) {
@@ -303,10 +325,11 @@ export default function App() {
         setAuthError("");
 
         try {
-          const result = await signUpWithEmailPassword(input);
+          const authService = await loadAuthService();
+          const result = await authService.signUpWithEmailPassword(input);
 
           if (result.hasSession) {
-            const session = await getCurrentSession();
+            const session = await authService.getCurrentSession();
             setAuthSession(session);
           }
 
@@ -322,7 +345,8 @@ export default function App() {
         setAuthError("");
 
         try {
-          await requestPasswordReset({
+          const authService = await loadAuthService();
+          await authService.requestPasswordReset({
             email,
             redirectTo: `${window.location.origin}/reset-password`
           });
@@ -334,14 +358,21 @@ export default function App() {
       },
 
       completePasswordRecovery: async (newPassword) => {
-        await updateUserPassword(newPassword);
+        const authService = await loadAuthService();
+        await authService.updateUserPassword(newPassword);
         setIsPasswordRecovery(false);
+      },
+
+      changePassword: async (newPassword) => {
+        const authService = await loadAuthService();
+        return authService.updateUserPassword(newPassword);
       },
 
       enterDemo: () => {
         const account = getDemoAccount();
         startDemoSession();
         setIsDemoMode(true);
+        setIsAuthLoading(false);
         setProfile(account.profile);
         setOrganization(account.organization);
         setNeedsOnboarding(false);
@@ -356,6 +387,7 @@ export default function App() {
         if (isDemoMode) {
           endDemoSession();
           setIsDemoMode(false);
+          setIsAuthLoading(Boolean(isSupabaseConfigured));
           setProfile(null);
           setOrganization(null);
           setLeads([]);
@@ -363,7 +395,8 @@ export default function App() {
         }
 
         try {
-          await signOutFromSupabase();
+          const authService = await loadAuthService();
+          await authService.signOutFromSupabase();
         } finally {
           setAuthSession(null);
           setProfile(null);
@@ -378,14 +411,16 @@ export default function App() {
           throw new Error("La demo non richiede configurazione iniziale.");
         }
 
-        const account = await bootstrapAccount(input);
+        const authService = await loadAuthService();
+        const account = await authService.bootstrapAccount(input);
         setProfile(account.profile);
         setOrganization(account.organization);
         setNeedsOnboarding(false);
         setAuthError("");
 
         try {
-          const remoteLeads = await fetchSupabaseLeads();
+          const leadService = await loadSupabaseLeadsService();
+          const remoteLeads = await leadService.fetchSupabaseLeads();
           setLeads(remoteLeads);
         } catch (error) {
           const friendlyError = getFriendlyDataError(error);
@@ -401,17 +436,22 @@ export default function App() {
           throw new Error("Profilo non disponibile.");
         }
 
-        const account = isDemoMode
-          ? updateDemoAccount({
-              organizationId: organization.id,
-              profile: profileDraft,
-              organization: organizationDraft
-            })
-          : await updateAccountProfile({
-              organizationId: organization.id,
-              profile: profileDraft,
-              organization: organizationDraft
-            });
+        let account;
+
+        if (isDemoMode) {
+          account = updateDemoAccount({
+            organizationId: organization.id,
+            profile: profileDraft,
+            organization: organizationDraft
+          });
+        } else {
+          const authService = await loadAuthService();
+          account = await authService.updateAccountProfile({
+            organizationId: organization.id,
+            profile: profileDraft,
+            organization: organizationDraft
+          });
+        }
 
         setProfile(account.profile);
         setOrganization(account.organization);
@@ -425,7 +465,8 @@ export default function App() {
 
         try {
           if (isDatabaseMode) {
-            const createdLead = await createSupabaseLead(lead, organization.id);
+            const leadService = await loadSupabaseLeadsService();
+            const createdLead = await leadService.createSupabaseLead(lead, organization.id);
             setLeads((currentLeads) => [createdLead, ...currentLeads]);
             return createdLead;
           }
@@ -475,19 +516,24 @@ export default function App() {
         }
 
         try {
-          const savedLead = await updateSupabaseLead(lead, previousLead);
+          const leadService = await loadSupabaseLeadsService();
+          const savedLead = await leadService.updateSupabaseLead(lead, previousLead);
           setLeads((currentLeads) =>
             currentLeads.map((item) => (item.id === savedLead.id ? savedLead : item))
           );
           setDataError("");
           return savedLead;
         } catch (error) {
-          const applicationError = toApplicationError(error, "Errore durante il salvataggio della richiesta.");
+          const applicationError = toApplicationError(
+            error,
+            "Errore durante il salvataggio della richiesta."
+          );
           setDataError(applicationError.message);
 
           if (isApplicationError(applicationError) && applicationError.code === "CONFLICT") {
             try {
-              const remoteLeads = await fetchSupabaseLeads();
+              const leadService = await loadSupabaseLeadsService();
+              const remoteLeads = await leadService.fetchSupabaseLeads();
               setLeads(remoteLeads);
             } catch (reloadError) {
               console.error("Impossibile ricaricare i dati dopo il conflitto", reloadError);
@@ -508,7 +554,7 @@ export default function App() {
       resetMockData: () => {
         if (!isDemoMode) {
           if (isDatabaseMode) {
-            reloadLeadsFromSupabase();
+            void reloadLeadsFromSupabase();
           }
           return;
         }
@@ -554,11 +600,19 @@ export default function App() {
     );
   }
 
-  if (!isLoggedIn && !PUBLIC_AUTH_PATHS.has(location.pathname) && location.pathname !== "/reset-password") {
+  if (
+    !isLoggedIn &&
+    !PUBLIC_AUTH_PATHS.has(location.pathname) &&
+    location.pathname !== "/reset-password"
+  ) {
     return <Navigate to="/login" replace />;
   }
 
-  if (isLoggedIn && needsOnboarding && !["/onboarding", "/reset-password"].includes(location.pathname)) {
+  if (
+    isLoggedIn &&
+    needsOnboarding &&
+    !["/onboarding", "/reset-password"].includes(location.pathname)
+  ) {
     return <Navigate to="/onboarding" replace />;
   }
 
@@ -570,5 +624,9 @@ export default function App() {
     return <Navigate to="/today" replace />;
   }
 
-  return <Outlet context={appContext} />;
+  return (
+    <Suspense fallback={<RouteLoadingFallback />}>
+      <Outlet context={appContext} />
+    </Suspense>
+  );
 }

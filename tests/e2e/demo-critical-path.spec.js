@@ -8,6 +8,7 @@ const CUSTOMER_MESSAGE = [
 ].join(" ");
 
 const NOTE_TEXT = "Cliente richiamato: attende la proposta entro domani.";
+const UPDATED_DEMO_OPERATOR = "Operatore Demo M8";
 
 async function enterDemo(page) {
   await page.goto("/login");
@@ -86,6 +87,31 @@ test.describe("critical demo journey", () => {
       await expect(page.getByLabel("Prossima azione")).toHaveValue("Fare follow-up");
       await expect(page.getByText(NOTE_TEXT, { exact: true })).toBeVisible();
     });
+  });
+
+  test("lazy settings boundary preserves demo account editing", async ({ page }) => {
+    await enterDemo(page);
+
+    await page.goto("/settings");
+    await expect(page.getByRole("heading", { name: "Profilo e preferenze" })).toBeVisible();
+    await expect(
+      page.getByText(/I promemoria sono locali a questo browser e dispositivo\./)
+    ).toBeVisible();
+    await expect(
+      page.getByText("La demo locale non usa credenziali reali e non comunica con Supabase Auth.")
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Modifica profilo" }).click();
+    await page.getByLabel("Nome utente").fill(UPDATED_DEMO_OPERATOR);
+    await page.getByRole("button", { name: "Salva modifiche" }).click();
+
+    await expect(page.getByText("Profilo e preferenze salvati correttamente.")).toBeVisible();
+    await expect(page.getByText(UPDATED_DEMO_OPERATOR, { exact: true }).first()).toBeVisible();
+
+    await page.reload();
+
+    await expect(page.getByRole("heading", { name: "Profilo e preferenze" })).toBeVisible();
+    await expect(page.getByText(UPDATED_DEMO_OPERATOR, { exact: true }).first()).toBeVisible();
   });
 
   test("logout closes the demo session and protects private routes", async ({ page }) => {

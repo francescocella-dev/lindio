@@ -1,17 +1,16 @@
 import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import Button from "../components/ui/Button.jsx";
-import Card from "../components/ui/Card.jsx";
-import Input from "../components/ui/Input.jsx";
-import Select from "../components/ui/Select.jsx";
 import LogoutConfirmModal from "../components/ui/LogoutConfirmModal.jsx";
+import AccountSettingsCards from "../components/settings/AccountSettingsCards.jsx";
+import ReminderPreferencesCard from "../components/settings/ReminderPreferencesCard.jsx";
+import SecuritySessionCards from "../components/settings/SecuritySessionCards.jsx";
 import {
   checkReminderNotifications,
   getNotificationPermission,
   requestReminderPermission,
   sendTestNotification
 } from "../services/notificationService.js";
-import { updateUserPassword } from "../services/authService.js";
 
 const NOTIFICATION_OPTIONS = [
   "Alla scadenza",
@@ -74,6 +73,7 @@ function getInitials(value) {
 export default function SettingsPage() {
   const {
     logout,
+    changePassword,
     authUser,
     profile,
     organization,
@@ -250,7 +250,7 @@ export default function SettingsPage() {
     setIsChangingPassword(true);
 
     try {
-      await updateUserPassword(passwordDraft.newPassword);
+      await changePassword(passwordDraft.newPassword);
 
       setPasswordDraft({
         newPassword: "",
@@ -341,244 +341,38 @@ export default function SettingsPage() {
       )}
 
       <div className="settings-clean-grid">
-        <Card title="Dati azienda" className="settings-card">
-          {isEditing ? (
-            <div className="settings-form-grid">
-              <Input
-                label="Nome azienda"
-                value={draft.organization.name}
-                onChange={(value) => patchOrganization("name", value)}
-                placeholder="Es. Impresa Rossi"
-                required
-              />
+        <AccountSettingsCards
+          isEditing={isEditing}
+          draft={draft}
+          authUser={authUser}
+          profile={profile}
+          organization={organization}
+          onOrganizationChange={patchOrganization}
+          onProfileChange={patchProfile}
+        />
 
-              <Input
-                label="Settore"
-                value={draft.organization.sector}
-                onChange={(value) => patchOrganization("sector", value)}
-                placeholder="Es. Pulizie e servizi"
-                required
-              />
+        <ReminderPreferencesCard
+          draft={draft}
+          hasUnsavedChanges={hasUnsavedChanges}
+          notificationStatusLabel={notificationStatusLabel}
+          notificationMessage={notificationMessage}
+          notificationOptions={NOTIFICATION_OPTIONS}
+          onToggleNotifications={handleToggleNotifications}
+          onReminderOptionChange={(value) => patchProfile("notificationReminderOption", value)}
+          onSendTestNotification={handleSendTestNotification}
+          onCheckReminderNow={handleCheckReminderNow}
+        />
 
-              <Input
-                label="Città"
-                value={draft.organization.city}
-                onChange={(value) => patchOrganization("city", value)}
-                placeholder="Es. Roma"
-                required
-              />
-
-              <Input
-                label="Telefono azienda"
-                value={draft.organization.phone}
-                onChange={(value) => patchOrganization("phone", value)}
-                placeholder="Numero aziendale"
-              />
-
-              <Input
-                label="Email azienda"
-                type="email"
-                value={draft.organization.email}
-                onChange={(value) => patchOrganization("email", value)}
-                placeholder="Email aziendale"
-              />
-
-              <Input
-                label="Indirizzo / zona operativa"
-                value={draft.organization.address}
-                onChange={(value) => patchOrganization("address", value)}
-                placeholder="Indirizzo o zona servita"
-              />
-            </div>
-          ) : (
-            <div className="settings-info-list">
-              <div className="settings-info-row">
-                <span>Nome azienda</span>
-                <strong>{organization?.name || "-"}</strong>
-              </div>
-
-              <div className="settings-info-row">
-                <span>Settore</span>
-                <strong>{organization?.sector || "-"}</strong>
-              </div>
-
-              <div className="settings-info-row">
-                <span>Città</span>
-                <strong>{organization?.city || "-"}</strong>
-              </div>
-
-              <div className="settings-info-row">
-                <span>Telefono</span>
-                <strong>{organization?.phone || "-"}</strong>
-              </div>
-
-              <div className="settings-info-row">
-                <span>Email azienda</span>
-                <strong>{organization?.email || "-"}</strong>
-              </div>
-
-              <div className="settings-info-row">
-                <span>Zona operativa</span>
-                <strong>{organization?.address || "-"}</strong>
-              </div>
-            </div>
-          )}
-        </Card>
-
-        <Card title="Dati utente" className="settings-card">
-          {isEditing ? (
-            <div className="settings-form-grid">
-              <Input
-                label="Nome utente"
-                value={draft.profile.fullName}
-                onChange={(value) => patchProfile("fullName", value)}
-                placeholder="Nome operatore"
-                required
-              />
-
-              <Input
-                label="Email login"
-                value={authUser?.email || ""}
-                onChange={() => { }}
-                disabled
-              />
-            </div>
-          ) : (
-            <div className="settings-info-list">
-              <div className="settings-info-row">
-                <span>Utente</span>
-                <strong>{profile?.fullName || "-"}</strong>
-              </div>
-
-              <div className="settings-info-row">
-                <span>Ruolo</span>
-                <strong>{profile?.role || "owner"}</strong>
-              </div>
-
-              <div className="settings-info-row">
-                <span>Email login</span>
-                <strong>{authUser?.email || "-"}</strong>
-              </div>
-            </div>
-          )}
-        </Card>
-
-        <Card title="Preferenze promemoria" className="settings-card">
-          <div className="settings-preferences-copy">
-            <p>
-              I promemoria sono locali a questo browser e dispositivo. Lindio controlla le scadenze mentre
-              l’app è aperta o quando torna in primo piano; non sono notifiche push dal server e non sono
-              garantiti quando l’app è completamente chiusa.
-            </p>
-            <small>Stato notifiche browser: {notificationStatusLabel}</small>
-          </div>
-
-          <div className="settings-form-grid">
-            <Select
-              label="Notifiche promemoria"
-              value={draft.profile.notificationEnabled ? "Sì" : "No"}
-              options={["No", "Sì"]}
-              onChange={handleToggleNotifications}
-            />
-
-            {draft.profile.notificationEnabled && (
-              <Select
-                label="Quando avvisarmi"
-                value={draft.profile.notificationReminderOption}
-                options={NOTIFICATION_OPTIONS}
-                onChange={(value) => patchProfile("notificationReminderOption", value)}
-              />
-            )}
-          </div>
-
-          <div className="settings-reminder-preview">
-            <span>Impostazione scelta</span>
-            <strong>
-              {draft.profile.notificationEnabled
-                ? `Notifica ${draft.profile.notificationReminderOption.toLowerCase()}`
-                : "Notifiche disattivate"}
-            </strong>
-            <small>
-              {hasUnsavedChanges
-                ? "Questa scelta non è ancora salvata."
-                : "Questa è la preferenza attualmente salvata sul profilo."}
-            </small>
-          </div>
-
-          {notificationMessage && (
-            <div className="settings-inline-message">
-              {notificationMessage}
-            </div>
-          )}
-
-          <div className="settings-card-actions">
-            <Button variant="secondary" type="button" onClick={handleSendTestNotification}>
-              Invia notifica di test
-            </Button>
-
-            <Button variant="secondary" type="button" onClick={handleCheckReminderNow}>
-              Controlla promemoria ora
-            </Button>
-          </div>
-        </Card>
-
-        <Card title="Password e sicurezza" className="settings-card">
-          {isDemoMode ? (
-            <div className="settings-preferences-copy">
-              <p>La demo locale non usa credenziali reali e non comunica con Supabase Auth.</p>
-              <small>Esci dalla demo per accedere o registrare un account reale.</small>
-            </div>
-          ) : (
-            <>
-              <div className="settings-preferences-copy">
-                <p>Cambia la password dell’account con cui accedi a Lindio.</p>
-              </div>
-
-              <div className="settings-form-grid">
-                <Input
-                  label="Nuova password"
-                  type="password"
-                  value={passwordDraft.newPassword}
-                  onChange={(value) => patchPassword("newPassword", value)}
-                  placeholder="Almeno 8 caratteri"
-                />
-
-                <Input
-                  label="Conferma nuova password"
-                  type="password"
-                  value={passwordDraft.confirmPassword}
-                  onChange={(value) => patchPassword("confirmPassword", value)}
-                  placeholder="Ripeti la nuova password"
-                />
-              </div>
-
-              {passwordError && (
-                <div className="settings-inline-message settings-inline-error">
-                  {passwordError}
-                </div>
-              )}
-
-              {passwordMessage && (
-                <div className="settings-inline-message settings-inline-success">
-                  {passwordMessage}
-                </div>
-              )}
-
-              <div className="settings-card-actions">
-                <Button type="button" onClick={handleChangePassword} disabled={isChangingPassword}>
-                  {isChangingPassword ? "Aggiornamento..." : "Cambia password"}
-                </Button>
-              </div>
-            </>
-          )}
-        </Card>
-
-        <Card title="Sessione" className="settings-card settings-danger-zone">
-          <p>{isDemoMode ? "Uscendo chiudi la demo locale. Le modifiche ai dati demo restano nel browser finché non li reimposti." : "Uscendo chiudi la sessione su questo browser. I dati salvati resteranno disponibili al prossimo accesso."}</p>
-          <Button variant="danger" type="button" onClick={() => setIsLogoutOpen(true)}>
-            Esci
-          </Button>
-        </Card>
+        <SecuritySessionCards
+          isDemoMode={isDemoMode}
+          passwordDraft={passwordDraft}
+          passwordError={passwordError}
+          passwordMessage={passwordMessage}
+          isChangingPassword={isChangingPassword}
+          onPasswordChange={patchPassword}
+          onChangePassword={handleChangePassword}
+          onRequestLogout={() => setIsLogoutOpen(true)}
+        />
       </div>
 
       {showSaveBar && (
