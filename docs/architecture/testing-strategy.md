@@ -4,7 +4,7 @@
 
 Lindio uses multiple automated test layers because different regressions require different execution boundaries. The goal is not to maximize a coverage percentage; it is to make every layer responsible for a concrete class of risk and keep the quality gate explainable.
 
-M6 introduced browser-level critical-path coverage. M7 extends that strategy with a separate production-build PWA acceptance boundary so service-worker and offline behavior are tested in the environment where they actually exist.
+M6 introduced browser-level critical-path coverage. M7 extends that strategy with a separate production-build PWA acceptance boundary so service-worker and offline behavior are tested in the environment where they actually exist. M8 adds a build-topology gate so code splitting remains an architectural property rather than a one-time optimization.
 
 ## Test pyramid
 
@@ -60,6 +60,8 @@ The critical demo journey verifies:
 10. reloading again and proving both mutations persist;
 11. logging out and confirming protected routes return to login.
 
+M8 also exercises the lazy-loaded Settings route in demo mode. That scenario edits the demo operator name, saves it, reloads the route and verifies persistence while preserving the reminder/security copy exposed by the decomposed Settings components.
+
 The tests use user-facing roles and labels instead of CSS classes or implementation-specific selectors. No production credentials, customer data or external services are required.
 
 ### 4. Production PWA acceptance
@@ -77,7 +79,25 @@ Service-worker registration is intentionally disabled in Vite development mode, 
 7. switches the Chromium context offline;
 8. proves that the cached application shell still renders the login route.
 
+Because `/login` is lazy-loaded after M8, this test also proves that a route chunk fetched while the service worker controls the page is available to the warmed offline shell.
+
 This is an application-shell acceptance test, not a claim that Supabase-backed features work offline.
+
+### 5. Production bundle topology
+
+`npm run build`
+
+`npm run check:bundle`
+
+The build-topology script inspects the real `dist/assets` output and prints every JavaScript chunk with minified and gzip sizes. It also identifies the JavaScript entry referenced by `dist/index.html`.
+
+The gate fails when:
+
+- no JavaScript entry can be resolved from the production HTML;
+- the build collapses back to a single JavaScript chunk;
+- any JavaScript chunk exceeds Vite's default 500 kB warning boundary.
+
+The limit is not raised to hide the warning. M8 makes the split itself part of CI by appending `check:bundle` to `quality:frontend`.
 
 ## Why the default E2E path uses demo mode
 
@@ -108,7 +128,7 @@ GitHub Actions uploads browser reports/results only when the E2E job fails. Thes
 Pull requests and pushes to `main` run three independent jobs:
 
 ```text
-frontend  -> lint + TypeScript + unit tests + production build
+frontend  -> lint + TypeScript + unit tests + production build + bundle topology gate
 
 e2e       -> Chromium install + critical browser journeys + production PWA acceptance
 
@@ -130,4 +150,5 @@ The following remain intentional non-goals rather than hidden coverage claims:
 - hosted Supabase authentication acceptance tests;
 - full offline Supabase data replication or mutation queues;
 - background/closed-app reminder delivery;
-- a Web Push backend and delivery scheduler.
+- a Web Push backend and delivery scheduler;
+- synthetic Lighthouse claims without a controlled measurement environment.

@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import { Link, Navigate, Outlet, useLocation, useOutletContext } from "react-router-dom";
 import Sidebar from "./Sidebar.jsx";
 import MobileBottomNav from "./MobileBottomNav.jsx";
 import Topbar from "./Topbar.jsx";
+import RouteLoadingFallback from "./RouteLoadingFallback.jsx";
 
 function isProfileComplete(profile, organization) {
   return Boolean(
@@ -57,7 +59,9 @@ export default function AppLayout() {
           logout={context.logout}
           isDemoMode={context.isDemoMode}
         />
-        <Outlet context={context} />
+        <Suspense fallback={<RouteLoadingFallback compact />}>
+          <Outlet context={context} />
+        </Suspense>
       </main>
 
       <MobileBottomNav />
