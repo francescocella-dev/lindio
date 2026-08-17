@@ -4,7 +4,7 @@
 
 Lindio uses multiple automated test layers because different regressions require different execution boundaries. The goal is not to maximize a coverage percentage; it is to make every layer responsible for a concrete class of risk and keep the quality gate explainable.
 
-M6 introduced browser-level critical-path coverage. M7 extends that strategy with a separate production-build PWA acceptance boundary so service-worker and offline behavior are tested in the environment where they actually exist. M8 adds a build-topology gate so code splitting remains an architectural property rather than a one-time optimization.
+Browser critical-path coverage protects product wiring, production PWA acceptance protects service-worker behavior, the bundle gate protects loading architecture, and the M9 release-hygiene gate protects repository/publication boundaries that normal application tests cannot see.
 
 ## Test pyramid
 
@@ -58,9 +58,8 @@ The critical demo journey verifies:
 8. changing an operational workflow field;
 9. adding a note;
 10. reloading again and proving both mutations persist;
-11. logging out and confirming protected routes return to login.
-
-M8 also exercises the lazy-loaded Settings route in demo mode. That scenario edits the demo operator name, saves it, reloads the route and verifies persistence while preserving the reminder/security copy exposed by the decomposed Settings components.
+11. exercising the lazy Settings boundary and demo account persistence;
+12. logging out and confirming protected routes return to login.
 
 The tests use user-facing roles and labels instead of CSS classes or implementation-specific selectors. No production credentials, customer data or external services are required.
 
@@ -68,18 +67,16 @@ The tests use user-facing roles and labels instead of CSS classes or implementat
 
 `npm run test:pwa`
 
-Service-worker registration is intentionally disabled in Vite development mode, so the normal E2E suite cannot prove PWA behavior. M7 therefore uses a separate Playwright configuration that:
+Service-worker registration is intentionally disabled in Vite development mode, so the normal E2E suite cannot prove PWA behavior. A separate Playwright configuration:
 
 1. runs a real production build;
 2. serves `dist` through `vite preview`;
 3. waits for the service worker to register and control the page;
 4. validates core manifest metadata and declared icon dimensions;
 5. inspects Lindio-owned Cache Storage entries;
-6. warms the production assets while online;
+6. warms production assets while online;
 7. switches the Chromium context offline;
-8. proves that the cached application shell still renders the login route.
-
-Because `/login` is lazy-loaded after M8, this test also proves that a route chunk fetched while the service worker controls the page is available to the warmed offline shell.
+8. proves that the cached application shell still renders the lazy-loaded login route.
 
 This is an application-shell acceptance test, not a claim that Supabase-backed features work offline.
 
@@ -89,15 +86,29 @@ This is an application-shell acceptance test, not a claim that Supabase-backed f
 
 `npm run check:bundle`
 
-The build-topology script inspects the real `dist/assets` output and prints every JavaScript chunk with minified and gzip sizes. It also identifies the JavaScript entry referenced by `dist/index.html`.
+The build-topology script inspects the real `dist/assets` output and prints each JavaScript chunk with minified/gzip sizes and whether it is referenced directly from `dist/index.html`.
 
 The gate fails when:
 
-- no JavaScript entry can be resolved from the production HTML;
+- no JavaScript entry can be resolved from production HTML;
 - the build collapses back to a single JavaScript chunk;
-- any JavaScript chunk exceeds Vite's default 500 kB warning boundary.
+- any JavaScript chunk exceeds the 500,000-byte boundary used by this project.
 
-The limit is not raised to hide the warning. M8 makes the split itself part of CI by appending `check:bundle` to `quality:frontend`.
+The threshold is not increased to suppress Vite warnings. The split itself is protected as an architectural property.
+
+### 6. Release hygiene
+
+`npm run check:release`
+
+This gate inspects **tracked repository files**, not runtime application state. It fails for high-signal release blockers such as:
+
+- tracked `.env` files other than `.env.example`;
+- tracked build/test output or local Netlify/Supabase state;
+- recognized private-key/access-token patterns;
+- a Supabase service-role key assignment;
+- absolute local workspace paths that would leak developer-machine structure into the portfolio repository.
+
+It is deliberately dependency-free and complements, rather than replaces, GitHub/host secret management and manual pre-publication review.
 
 ## Why the default E2E path uses demo mode
 
@@ -105,7 +116,7 @@ Demo mode is a real supported Lindio execution path, not a mocked HTML fixture. 
 
 The browser suite does **not** add a signup/onboarding scenario against Supabase. Doing that reliably would couple the E2E job to the local auth stack, generated credentials and service startup while substantially overlapping existing auth repository tests plus pgTAP coverage for account bootstrap and tenancy.
 
-A real-auth browser smoke test can be added later if Lindio gains a production acceptance requirement that specifically needs to prove the complete hosted auth flow.
+A hosted real-auth smoke test is a release/deployment check rather than a claim made by the default deterministic CI suite.
 
 ## Browser scope
 
@@ -128,14 +139,20 @@ GitHub Actions uploads browser reports/results only when the E2E job fails. Thes
 Pull requests and pushes to `main` run three independent jobs:
 
 ```text
-frontend  -> lint + TypeScript + unit tests + production build + bundle topology gate
+frontend  -> lint + TypeScript + unit tests + production build + bundle topology + release hygiene
 
 e2e       -> Chromium install + critical browser journeys + production PWA acceptance
 
 database  -> local Supabase + migration reset + pgTAP + database lint
 ```
 
-A change is considered CI-green only when all three jobs pass.
+`npm run quality:deploy` is the smaller hosted-deployment boundary:
+
+```text
+production build -> bundle topology -> release hygiene
+```
+
+A change is considered CI-green only when all three GitHub Actions jobs pass.
 
 ## Known gaps
 
@@ -147,8 +164,9 @@ The following remain intentional non-goals rather than hidden coverage claims:
 - third-party browser-testing SaaS;
 - production credentials or real customer data in browser tests;
 - full cross-browser/device matrices;
-- hosted Supabase authentication acceptance tests;
+- hosted Supabase authentication acceptance inside deterministic CI;
 - full offline Supabase data replication or mutation queues;
 - background/closed-app reminder delivery;
 - a Web Push backend and delivery scheduler;
-- synthetic Lighthouse claims without a controlled measurement environment.
+- synthetic Lighthouse/Core Web Vitals claims without a controlled measurement environment;
+- treating pattern-based secret scanning as a formal security audit.

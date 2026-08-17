@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "engines": {
-    "node": ">=24"
+    "node": ">=24.18.0 <25",
+    "npm": ">=11.16.0 <12"
   },
   "scripts": {
     "dev": "vite",
@@ -18,7 +19,9 @@
     "test:e2e:ui": "playwright test --ui",
     "test:pwa": "playwright test --config=playwright.pwa.config.js",
     "check:bundle": "node scripts/check-build-output.mjs",
-    "quality:frontend": "npm run lint && npm run typecheck && npm run test:unit && npm run build && npm run check:bundle",
+    "check:release": "node scripts/check-release-hygiene.mjs",
+    "quality:deploy": "npm run build && npm run check:bundle && npm run check:release",
+    "quality:frontend": "npm run lint && npm run typecheck && npm run test:unit && npm run quality:deploy",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset --local",

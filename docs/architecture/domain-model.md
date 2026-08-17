@@ -1,25 +1,29 @@
-# Lindio domain model — M2
+# Lindio domain model
 
 ## Purpose
 
-M2 makes the commercial workflow explicit without changing how operators use the product.
-The existing UI remains intentionally permissive: an operator can move a request to any valid status because small businesses often correct or skip workflow steps after phone calls or offline activity.
-A restrictive state machine is therefore deferred to the workflow milestone and must be justified by product evidence before it is enforced.
+Lindio makes the commercial-request workflow explicit while keeping operator control appropriate for a micro-business. The domain layer centralizes stable vocabulary, normalization and runtime validation so browser-local demo persistence and Supabase-backed persistence do not drift into different product rules.
+
+The workflow is deliberately permissive: an operator can move a request to any valid status. Phone calls, offline conversations and corrections can legitimately skip or revisit steps, and current product evidence does not justify a restrictive finite-state machine.
+
+Reliability is enforced through validation, transaction boundaries and optimistic concurrency instead of by artificially blocking valid manual transitions. See [`workflow-reliability.md`](workflow-reliability.md).
 
 ## Typed boundary
 
-The first TypeScript boundary is deliberately placed around stable concepts rather than converting every React component at once:
+TypeScript is concentrated around stable domain/application/repository concepts rather than requiring a mechanical all-at-once React migration:
 
-- `src/domain/lead.ts` — lead vocabulary and TypeScript contracts;
+- `src/domain/lead.ts` — lead vocabulary and contracts;
 - `src/domain/leadValidation.ts` — runtime validation and normalization of untrusted lead input;
-- `src/domain/leadWorkflow.ts` — workflow guidance, final-state rules and follow-up suggestions;
+- `src/domain/leadWorkflow.ts` — workflow guidance and final-state rules;
+- `src/domain/leadOperations.ts` — shared operational timing/query semantics;
+- `src/domain/reminderPolicy.ts` — deterministic reminder eligibility/deduplication rules;
 - `src/domain/account.ts` / `accountValidation.ts` — account and organization contracts;
 - `src/repositories/leadRepository.ts` — provider-independent persistence contract;
-- `src/repositories/supabaseLeadRepository.ts` — Supabase implementation behind the contract;
+- `src/repositories/supabaseLeadRepository.ts` — Supabase lead implementation;
 - `src/repositories/supabaseAccountRepository.ts` — typed account RPC adapter;
 - `src/application/localLeadService.ts` — local/demo lead operations using the same domain validation.
 
-Legacy JSX and service import paths remain available through small JavaScript facades. This keeps M2 reviewable and avoids a big-bang migration that would mix architecture changes with hundreds of mechanical file conversions.
+Small JavaScript facades preserve existing JSX import paths where useful. This keeps migration boundaries explainable without mixing architecture work with a big-bang file conversion.
 
 ## Lead vocabulary
 
@@ -30,50 +34,62 @@ Controlled values are centralized for:
 - urgency;
 - next action.
 
-`serviceType` intentionally remains free text. Lindio targets micro-businesses whose services vary considerably, so turning service names into an enum would create artificial product constraints.
+`serviceType` intentionally remains free text. Lindio targets small service businesses whose service catalogues vary substantially, so a fixed enum would impose a product constraint without evidence.
+
+The current final states are `Vinta` and `Persa`. The historic `Follow-up` status is normalized to `In attesa` for backward compatibility with older local payloads.
 
 ## Validation model
 
-Runtime validation sits before both local persistence and Supabase commands. Validation returns structured issues with:
+Runtime validation runs before both local and Supabase persistence. Validation exposes structured issues with a field path, stable issue code and user-facing message.
 
-- field path;
-- stable issue code;
-- user-facing message.
-
-Current validation covers:
+Current validation includes:
 
 - at least one useful intake signal (customer name or raw message);
 - valid channel, urgency, status and next action;
 - optional email syntax;
 - non-negative finite estimated value;
 - valid optional follow-up date/time;
-- account notification interval aligned with the PostgreSQL 5–1440 minute constraint.
+- account/organization input validation;
+- notification lead time as an integer from **0 to 1440 minutes**.
 
-No arbitrary maximum text lengths were introduced in M2 because that would silently remove previously supported input without product evidence.
+Arbitrary text-length limits are not introduced merely for technical convenience; adding them would be a product decision because it can reject previously supported customer input.
 
-## Database alignment
+## Workflow semantics
 
-PostgreSQL already constrained channel, urgency and status in M1. M2 adds the missing `next_action` constraint and changes its database default from an empty string to `Rispondere al cliente`.
+The UI can move between any valid commercial statuses, but shared domain functions define consistent behavior for:
 
-Database tests verify that:
+- open vs final requests;
+- follow-ups due today;
+- overdue follow-ups;
+- near-term follow-ups;
+- ordering of operational work.
 
-1. the constraint exists;
-2. an unknown next action is rejected;
-3. a direct insert receives a valid default action.
+An overdue follow-up means a follow-up scheduled before the current local day. A follow-up whose clock time has passed today remains in the Today category. The same semantics are reused across dashboard, list, cards and report views.
 
-## Legacy compatibility
+Database-backed writes add a separate reliability boundary: lead versions are checked server-side and stale commands are rejected before they can overwrite newer data.
 
-The historic status `Follow-up` is normalized to `In attesa` at the domain boundary. Existing data and old localStorage payloads therefore remain readable without keeping `Follow-up` as a first-class workflow state.
+## Persistence alignment
 
-## Deliberately deferred
+The database constrains the same controlled values used by the application and exposes transactional RPCs for workflow writes. The browser does not get to choose or mutate tenant ownership through a lead command.
 
-M2 does not yet:
+Application adapters normalize database rows back into the domain contract, while demo/local operations use the same validation rules before browser persistence.
 
-- convert every React component to TypeScript;
-- restrict state transitions;
-- replace the deterministic analysis engine;
-- redesign demo authentication;
-- introduce provider-backed monitoring;
-- implement background push notifications.
+This means local demo mode intentionally shares **product validation**, but it does not pretend to share PostgreSQL authorization or transactional guarantees.
 
-Those concerns belong to later milestones so each architectural change remains explainable and independently testable.
+## Legacy persistence names
+
+`aiSummary` and `aiSuggestedReply` remain in the lead persistence shape for backward/schema compatibility. They are legacy field names rather than a claim that the current intake analyzer is an LLM.
+
+Visible product terminology and the current application boundary describe the feature as deterministic intake analysis. See [`intake-analyzer.md`](intake-analyzer.md).
+
+## Intentional limits
+
+The current model does not attempt to provide:
+
+- a restrictive commercial state machine;
+- configurable per-organization workflow schemas;
+- a normalized service catalogue;
+- arbitrary enterprise role/permission matrices;
+- automated decisions that commit workflow changes without operator review.
+
+Those capabilities should only be introduced when a concrete product requirement justifies their added constraints and complexity.
