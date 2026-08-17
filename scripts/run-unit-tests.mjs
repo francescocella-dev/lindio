@@ -24,6 +24,7 @@ const tests = [
   "tests/unit/lead-validation.test.cjs",
   "tests/unit/lead-workflow.test.cjs",
   "tests/unit/lead-operations.test.cjs",
+  "tests/unit/reminder-policy.test.cjs",
   "tests/unit/application-error.test.cjs",
   "tests/unit/intake-analysis-contract.test.cjs",
   "tests/unit/deterministic-intake-analyzer.test.cjs",

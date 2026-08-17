@@ -59,9 +59,9 @@ function getInitialDraft(profile, organization) {
 function isProfileComplete(profile, organization) {
   return Boolean(
     profile?.fullName?.trim() &&
-    organization?.name?.trim() &&
-    organization?.sector?.trim() &&
-    organization?.city?.trim()
+      organization?.name?.trim() &&
+      organization?.sector?.trim() &&
+      organization?.city?.trim()
   );
 }
 
@@ -466,7 +466,9 @@ export default function SettingsPage() {
         <Card title="Preferenze promemoria" className="settings-card">
           <div className="settings-preferences-copy">
             <p>
-              I promemoria usano le notifiche del browser. Per riceverli, devono essere abilitate sia nel browser sia nelle impostazioni del dispositivo.
+              I promemoria sono locali a questo browser e dispositivo. Lindio controlla le scadenze mentre
+              l’app è aperta o quando torna in primo piano; non sono notifiche push dal server e non sono
+              garantiti quando l’app è completamente chiusa.
             </p>
             <small>Stato notifiche browser: {notificationStatusLabel}</small>
           </div>
@@ -499,7 +501,7 @@ export default function SettingsPage() {
             <small>
               {hasUnsavedChanges
                 ? "Questa scelta non è ancora salvata."
-                : "Questa è la preferenza attualmente salvata."}
+                : "Questa è la preferenza attualmente salvata sul profilo."}
             </small>
           </div>
 
