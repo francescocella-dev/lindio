@@ -30,7 +30,7 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,6 +50,9 @@ jobs:
       - name: Run critical browser journeys
         run: npm run test:e2e
 
+      - name: Run production PWA acceptance
+        run: npm run test:pwa
+
       - name: Upload Playwright failure artifacts
         if: failure()
         uses: actions/upload-artifact@v4
@@ -58,6 +61,8 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            playwright-pwa-report/
+            test-results-pwa/
           if-no-files-found: ignore
           retention-days: 7
 
